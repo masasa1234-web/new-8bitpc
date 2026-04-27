@@ -1,0 +1,13 @@
+{
+  "tick_source": "4.000 MHz",
+  "sub_ticks": ["32_tick", "8_tick"],
+  "particle_behavior": {
+    "heat": "sync_to_tick",
+    "weight": "respond_to_membrane",
+    "flicker": "modulated_by_drift",
+    "drift": "phase_shifted"
+  },
+  "membrane_response": "elasticity_tuned",
+  "drift_interaction": "continuous_phase_modulation",
+  "state": "bound"
+}
