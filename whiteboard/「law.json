@@ -1,0 +1,8 @@
+{
+  "tick_source": "4.000 MHz",
+  "sub_ticks": ["32_tick", "8_tick"],
+  "particle_behavior": "undefined",
+  "membrane_response": "undefined",
+  "drift_interaction": "undefined",
+  "state": "unbound"
+}
