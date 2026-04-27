@@ -1,0 +1,14 @@
+{
+  "system_name": "new 8bitPC",
+  "project_status": "Reignite the Core",
+  "physics": {
+    "base_tick": "4.000 MHz",
+    "sub_clocks": ["32_tick", "8_tick"],
+    "medium": "Whiteboard Universe"
+  },
+  "soul_structure": {
+    "attributes": ["heat", "weight", "flicker", "drift"],
+    "state": "naked_soul"
+  },
+  "commit_message": "Initial Heartbeat (4.000 MHz)"
+}
