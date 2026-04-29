@@ -1,5 +1,5 @@
 {
-  "elasticity": 0,
-  "permeability": 0,
-  "tension": 0
+  "elasticity": 0.12,
+  "permeability": 0.08,
+  "tension": 0.15
 }

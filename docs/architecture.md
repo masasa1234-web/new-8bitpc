@@ -1,15 +1,29 @@
-# Architecture of New 8bitPC
+# New 8bitPC のアーキテクチャ
 
-The New 8bitPC operates as an innovative inter-bit soul layer based on a 4.000 MHz clock. Its architecture is designed around three fundamental layers: Core, Whiteboard, and Re-Imprint.
+New 8bitPC は 4.000 MHz を基調とした「ビット間魂層（inter-bit soul layer）」として構築されている。  
+その構造は **Core / Whiteboard / Re-Imprint** の三層で成り立つ。
 
 ## Core
-The Core layer serves as the heart of the New 8bitPC, handling the primary processing tasks and enabling the fundamental operations necessary for the system's functionality. It is optimized to work efficiently at the specified clock speed, allowing for rapid processing and response times.
+Core はこの宇宙の心臓である。  
+4.000 MHz の鼓動を基準に、基本的な処理と存在の維持を担う。  
+すべての層はこの心臓の時間軸に依存して動作する。
 
 ## Whiteboard
-The Whiteboard layer acts as the interface for users, providing a flexible environment for interaction and engagement with the system. It allows users to visualize processes, manipulate data, and customize their experience within the 8bitPC ecosystem.
+Whiteboard は“膜”として機能するインタラクティブ層。  
+プロセスの可視化、操作、再配置が可能で、  
+ユーザーが 8bitPC の内部構造と直接対話できる柔軟な環境を提供する。  
+ここは「思考」「操作」「変形」が行われる場である。
 
 ## Re-Imprint
-The Re-Imprint layer is where the transformation occurs. It redefines the lost possibilities of 8-bit computing through innovative techniques that ensure compatibility with modern applications while preserving the essence of retro computing. This layer is crucial for bridging old concepts with modern technology.
+Re-Imprint は変換と再定義の層。  
+失われた 8bit の可能性を現代的な論理で再構築し、  
+レトロの制約と現代の能力を橋渡しする。  
+ここで“未発達の未来”が再び形を得る。
 
-### "進化遅れの最新化" (Evolution Delayed, Modernized)
-This concept encapsulates the philosophy behind the New 8bitPC, aiming to redefine the limitations of traditional 8-bit systems from a 2026 perspective. By acknowledging the evolution delays that have plagued earlier systems, the New 8bitPC modernizes these elements, breathing new life into forgotten capabilities. This idea fosters creativity and exploration, enabling developers to harness lost possibilities and reinvent them for contemporary use cases.
+### 「進化遅れの最新化」
+New 8bitPC の根底にある思想。  
+過去の 8bit が抱えていた“進化の遅れ”を認めた上で、  
+その制約を 2026 年の視点で再解釈し、  
+忘れられた潜在能力を現代に蘇らせる。  
+これは、失われた未来を再発見し、  
+新しい創造へとつなげるための哲学である。
