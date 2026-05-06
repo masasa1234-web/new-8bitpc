@@ -2,21 +2,30 @@
   "bridge_rules": [
     {
       "fragment_type": "logic",
-      "affects": "law.priority",
+      "affects": {
+        "layer": "law",
+        "property": "priority"
+      },
       "intensity": 0.3,
       "mode": "increase",
       "note": "乾いたロジックの魂片は法則の優先度を上げる。"
     },
     {
       "fragment_type": "structure",
-      "affects": "space.symmetry",
+      "affects": {
+        "layer": "space",
+        "property": "symmetry"
+      },
       "intensity": 0.25,
       "mode": "stabilize",
       "note": "構造の魂片は空間の対称性を安定させる。"
     },
     {
       "fragment_type": "culture",
-      "affects": "drift.variance",
+      "affects": {
+        "layer": "drift",
+        "property": "variance"
+      },
       "intensity": 0.15,
       "mode": "expand",
       "note": "文化的残滓は揺らぎの幅を広げる。"
@@ -28,3 +37,4 @@
     "drift_range": [0.05, 0.25]
   }
 }
+

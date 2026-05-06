@@ -1,34 +1,27 @@
-{{
-  "world_structure": {
-    "stable_layer": [
-      "whiteboard/space.json",
-      "whiteboard/membrane.json",
-      "whiteboard/particles.json",
-      "whiteboard/metabolism.json",
-      "whiteboard/law.json"
-    ],
-    "fluctuation_layer": [
-      "whiteboard/drift.json",
-      "whiteboard/fragment_pool.json"
-    ],
-    "interface_layer": [
-      "whiteboard/tune_bridge.json",
-      "core/tune/tune_spec_v3.md"
-    ]
-  },
+{
   "load_order": [
     "stable_layer",
     "fluctuation_layer",
     "interface_layer"
   ],
-  "tune_activation": {
-    "enabled": true,
-    "conditions_source": "whiteboard/tune_bridge.json",
-    "fragment_source": "whiteboard/fragment_pool.json",
-    "drift_source": "whiteboard/drift.json"
-  },
+  "stable_layer": [
+    "whiteboard/space.json",
+    "whiteboard/membrane.json",
+    "whiteboard/particles.json",
+    "whiteboard/metabolism.json",
+    "whiteboard/law.json"
+  ],
+  "fluctuation_layer": [
+    "whiteboard/drift.json",
+    "whiteboard/fragment_pool.json"
+  ],
+  "interface_layer": [
+    "whiteboard/tune_bridge.json"
+  ],
+  "tune_spec": "core/tune/tune_spec_v3.md",
+  "auto_build": "core/auto/build.js",
   "metadata": {
-    "version": "3.0",
-    "description": "new8bitPC world definition aligned with Tune v3 architecture."
+    "version": "3.0-auto",
+    "description": "new8bitPC world definition with auto-build enabled for Tune v3 architecture."
   }
 }
