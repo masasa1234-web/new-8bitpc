@@ -1,24 +1,34 @@
-{
-  "system_name": "new 8bitPC",
-  "project_status": "Reignite the Core",
-
-  "physics": {
-    "base_tick": "4.000 MHz",
-    "sub_clocks": ["32_tick", "8_tick"],
-    "medium": "Whiteboard Universe"
+{{
+  "world_structure": {
+    "stable_layer": [
+      "whiteboard/space.json",
+      "whiteboard/membrane.json",
+      "whiteboard/particles.json",
+      "whiteboard/metabolism.json",
+      "whiteboard/law.json"
+    ],
+    "fluctuation_layer": [
+      "whiteboard/drift.json",
+      "whiteboard/fragment_pool.json"
+    ],
+    "interface_layer": [
+      "whiteboard/tune_bridge.json",
+      "core/tune/tune_spec_v3.md"
+    ]
   },
-
-  "soul_structure": {
-    "attributes": ["heat", "weight", "flicker", "drift"],
-    "state": "naked_soul"
+  "load_order": [
+    "stable_layer",
+    "fluctuation_layer",
+    "interface_layer"
+  ],
+  "tune_activation": {
+    "enabled": true,
+    "conditions_source": "whiteboard/tune_bridge.json",
+    "fragment_source": "whiteboard/fragment_pool.json",
+    "drift_source": "whiteboard/drift.json"
   },
-
-  "metabolism_handling": {
-    "trigger": 256,
-    "action": "invoke_metabolism",
-    "post_action": "continue_tick",
-    "post_state": "stabilized"
-  },
-
-  "commit_message": "Initial Heartbeat (4.000 MHz)"
+  "metadata": {
+    "version": "3.0",
+    "description": "new8bitPC world definition aligned with Tune v3 architecture."
+  }
 }

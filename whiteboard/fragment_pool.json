@@ -1,0 +1,33 @@
+{
+  "fragments": [
+    {
+      "id": "logic_dry_01",
+      "type": "logic",
+      "purity": 0.92,
+      "weight": 0.4,
+      "origin": "core/metabolism",
+      "note": "乾いたロジックの美しさ。無駄のない流れ。"
+    },
+    {
+      "id": "structure_clean_01",
+      "type": "structure",
+      "purity": 0.88,
+      "weight": 0.5,
+      "origin": "core/space",
+      "note": "整った座標構造。8bit 的な清潔さ。"
+    },
+    {
+      "id": "culture_residue_01",
+      "type": "culture",
+      "purity": 0.61,
+      "weight": 0.2,
+      "origin": "whiteboard/drift",
+      "note": "文化的残滓。8bit 時代の記憶のかけら。"
+    }
+  ],
+  "fragment_generation_rules": {
+    "drift_threshold": 0.12,
+    "metabolism_flow_bias": 0.03,
+    "structure_symmetry_bonus": 0.05
+  }
+}
