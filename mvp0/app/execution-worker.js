@@ -41,6 +41,13 @@ async function runLoop(thisRun) {
     }
 
     pendingEvents.push(result.event);
+    if (result.event.type === "end") {
+      flushPendingEvents();
+      active = false;
+      self.postMessage({ type: "finished", steps: currentSteps });
+      return;
+    }
+
     const observed = observeExecutionStep(
       policyState,
       result.event,

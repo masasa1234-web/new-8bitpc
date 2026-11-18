@@ -292,7 +292,11 @@ function createLogEntry(event) {
   entry.dataset.type = event.type;
   const title = event.type === "skipped"
     ? `#${event.step} · 入力行${event.row.sourceLine} / BASIC行${event.row.lineNumber} · ${event.label}`
-    : `#${event.step} · 入力行${event.row.sourceLine} / BASIC行${event.row.lineNumber} · ${event.type === "print" ? "PRINT" : `GOTO ${event.targetLine}`}`;
+    : `#${event.step} · 入力行${event.row.sourceLine} / BASIC行${event.row.lineNumber} · ${
+      event.type === "print" ? "PRINT" :
+      event.type === "goto" ? `GOTO ${event.targetLine}` :
+      event.type === "rem" ? "REM（no-op）" : "END"
+    }`;
   appendText(entry, "p", "row-meta", title);
   appendText(entry, "p", "log-source", event.row.sourceText);
   if (event.type === "print") appendText(entry, "p", "log-detail", event.value);

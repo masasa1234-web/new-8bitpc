@@ -2,8 +2,9 @@
 
 This isolated prototype keeps each entered page's source text unchanged and
 derives line analysis and executable statements from committed pages. It
-supports string-literal `PRINT` and numeric-line `GOTO`; other commands are
-reported as uninterpreted and skipped. It is not a full N88-BASIC emulator.
+supports string-literal `PRINT`, numeric-line `GOTO`, `REM` as a no-op, and
+`END` to stop execution. Other commands are reported as uninterpreted and
+skipped. It is not a full N88-BASIC emulator.
 Compact forms such as `10PRINT"A"` and `10GOTO100` are accepted when the
 command/argument boundary is clear. Ambiguous forms such as `10PRINTA` remain
 uninterpreted. These are MVP input rules, not claims about N88-BASIC hardware.
@@ -95,3 +96,7 @@ node --test
 7. Delimit a page with five or more mostly uninterpreted rows and confirm the
    profile caution appears without stopping input. Confirm a page with all rows
    uninterpreted also gets the notice, even when it has fewer than five rows.
+8. Run `10 REM COMMENT` followed by `20 PRINT "HELLO"` and confirm the Raw
+   comment is preserved, logged as a no-op step, and does not suppress `HELLO`.
+   Run `10 PRINT "BEFORE"`, `20 END`, and `30 PRINT "AFTER"` and confirm only
+   `BEFORE` is output and execution finishes at `END`.

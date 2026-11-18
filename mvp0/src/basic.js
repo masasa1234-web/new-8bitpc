@@ -18,6 +18,23 @@ function parseStatement(text) {
   const command = commandText.toUpperCase();
   const argument = text.trimStart().slice(commandText.length).trim();
 
+  if (command === "REM") {
+    return {
+      status: RowStatus.understood,
+      instruction: { type: "rem" }
+    };
+  }
+
+  if (command === "END") {
+    if (argument) {
+      return { status: RowStatus.error, reason: "ENDに余分な内容があります。" };
+    }
+    return {
+      status: RowStatus.understood,
+      instruction: { type: "end" }
+    };
+  }
+
   if (command === "PRINT") {
     if (!argument) {
       return { status: RowStatus.error, reason: "PRINTの内容がありません。" };
@@ -246,6 +263,7 @@ export function advanceExecution(analysis, state) {
   const steps = state.steps + 1;
   let position = state.position + 1;
   let event;
+  let done = false;
 
   if (row.status !== RowStatus.understood) {
     const label = row.duplicate
@@ -254,7 +272,12 @@ export function advanceExecution(analysis, state) {
     event = { type: "skipped", row, label, step: steps };
   } else if (row.instruction.type === "print") {
     event = { type: "print", row, value: row.instruction.value, step: steps };
-  } else {
+  } else if (row.instruction.type === "rem") {
+    event = { type: "rem", row, step: steps };
+  } else if (row.instruction.type === "end") {
+    event = { type: "end", row, step: steps };
+    done = true;
+  } else if (row.instruction.type === "goto") {
     event = {
       type: "goto",
       row,
@@ -265,10 +288,12 @@ export function advanceExecution(analysis, state) {
       target => target.sourceLine === row.jumpTargetSourceLine
     );
     if (targetPosition !== -1) position = targetPosition;
+  } else {
+    throw new Error(`未対応の実行命令です: ${row.instruction.type}`);
   }
 
   return {
-    state: { position, steps, done: false },
+    state: { position, steps, done },
     event
   };
 }

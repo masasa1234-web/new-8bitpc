@@ -73,6 +73,75 @@ test("unknown commands are reported and count as skipped execution steps", () =>
   assert.equal(result.state.steps, 3);
 });
 
+test("REM is preserved as a no-op step and execution continues", () => {
+  const raw = '10 REM TITLE SCREEN\n20 PRINT "HELLO"';
+  const analysis = analyzeProgram(raw);
+  assert.equal(analysis.raw, raw);
+  assert.deepEqual(analysis.rows.map(row => row.status), [
+    RowStatus.understood,
+    RowStatus.understood
+  ]);
+  assert.deepEqual(analysis.rows[0].instruction, { type: "rem" });
+  assert.deepEqual(analysis.executable.map(row => row.lineNumber), [10, 20]);
+
+  const comment = advanceExecution(analysis, createExecutionState());
+  assert.equal(comment.event.type, "rem");
+  assert.equal(comment.event.step, 1);
+  assert.equal(comment.state.position, 1);
+  assert.equal(comment.state.steps, 1);
+
+  const print = advanceExecution(analysis, comment.state);
+  assert.equal(print.event.type, "print");
+  assert.equal(print.event.value, "HELLO");
+  assert.equal(print.event.step, 2);
+});
+
+test("GOTO can target a REM row and continue with deterministic step counting", () => {
+  const analysis = analyzeProgram(
+    '10 GOTO 30\n20 PRINT "SKIPPED"\n30 REM COMMENT\n40 PRINT "DONE"'
+  );
+  let state = createExecutionState();
+  const events = [];
+  for (let index = 0; index < 3; index += 1) {
+    const result = advanceExecution(analysis, state);
+    state = result.state;
+    events.push(result.event);
+  }
+
+  assert.deepEqual(events.map(event => [event.type, event.row.lineNumber, event.step]), [
+    ["goto", 10, 1],
+    ["rem", 30, 2],
+    ["print", 40, 3]
+  ]);
+  assert.equal(events[2].value, "DONE");
+});
+
+test("END stops execution at its row and does not execute later lines", () => {
+  const analysis = analyzeProgram('10 PRINT "BEFORE"\n20 END\n30 PRINT "AFTER"');
+  assert.deepEqual(analysis.rows.map(row => row.status), [
+    RowStatus.understood,
+    RowStatus.understood,
+    RowStatus.understood
+  ]);
+  assert.deepEqual(analysis.executable.map(row => row.lineNumber), [10, 20, 30]);
+
+  const before = advanceExecution(analysis, createExecutionState());
+  assert.equal(before.event.type, "print");
+  assert.equal(before.event.value, "BEFORE");
+  assert.equal(before.state.done, false);
+
+  const end = advanceExecution(analysis, before.state);
+  assert.equal(end.event.type, "end");
+  assert.equal(end.event.row.lineNumber, 20);
+  assert.equal(end.state.done, true);
+  assert.equal(end.state.steps, 2);
+
+  const after = advanceExecution(analysis, end.state);
+  assert.equal(after.event, null);
+  assert.equal(after.state.done, true);
+  assert.equal(after.state.steps, 2);
+});
+
 test("missing GOTO targets wait until completion, then become errors", () => {
   const raw = "10 GOTO 100";
   assert.equal(analyzeProgram(raw).rows[0].status, RowStatus.referenceWaiting);
