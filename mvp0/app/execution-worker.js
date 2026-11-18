@@ -6,6 +6,7 @@ import {
   observeExecutionStep
 } from "../src/stop-policy.js";
 
+const EVENT_BATCH_SIZE = 32;
 let runId = 0;
 let active = false;
 let waitingForDecision = false;
@@ -14,6 +15,17 @@ let executionState;
 let policyState;
 let currentAnalysis;
 let pendingStop;
+let pendingEvents = [];
+
+function flushPendingEvents() {
+  if (pendingEvents.length === 0) return;
+  self.postMessage({
+    type: "events",
+    events: pendingEvents,
+    steps: currentSteps
+  });
+  pendingEvents = [];
+}
 
 async function runLoop(thisRun) {
   while (active && !waitingForDecision && thisRun === runId) {
@@ -22,12 +34,13 @@ async function runLoop(thisRun) {
     currentSteps = executionState.steps;
 
     if (!result.event) {
+      flushPendingEvents();
       active = false;
       self.postMessage({ type: "finished", steps: executionState.steps });
       return;
     }
 
-    self.postMessage({ type: "event", event: result.event, steps: executionState.steps });
+    pendingEvents.push(result.event);
     const observed = observeExecutionStep(
       policyState,
       result.event,
@@ -38,10 +51,12 @@ async function runLoop(thisRun) {
     if (observed.stop) {
       waitingForDecision = true;
       pendingStop = observed.stop;
+      flushPendingEvents();
       self.postMessage({ type: "stop-candidate", reason: pendingStop, steps: currentSteps });
       return;
     }
 
+    if (pendingEvents.length >= EVENT_BATCH_SIZE) flushPendingEvents();
     await new Promise(resolve => setTimeout(resolve, 0));
   }
 }
@@ -51,6 +66,7 @@ self.addEventListener("message", ({ data }) => {
     active = false;
     waitingForDecision = false;
     pendingStop = null;
+    flushPendingEvents();
     self.postMessage({ type: "stopped", steps: currentSteps, reason: "manual" });
     return;
   }
@@ -89,6 +105,7 @@ self.addEventListener("message", ({ data }) => {
   active = true;
   waitingForDecision = false;
   currentSteps = 0;
+  pendingEvents = [];
   currentAnalysis = data.analysis;
   executionState = createExecutionState();
   policyState = createStopPolicyState(DEFAULT_STOP_SETTINGS);

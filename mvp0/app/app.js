@@ -285,7 +285,7 @@ function setRunning(running) {
   if (!running) runButton.disabled = session.pages.length === 0;
 }
 
-function addLogEntry(event) {
+function createLogEntry(event) {
   const entry = document.createElement("article");
   entry.className = "log-entry";
   entry.dataset.type = event.type;
@@ -295,8 +295,13 @@ function addLogEntry(event) {
   appendText(entry, "p", "row-meta", title);
   appendText(entry, "p", "log-source", event.row.sourceText);
   if (event.type === "print") appendText(entry, "p", "log-detail", event.value);
-  executionLog.append(entry);
+  return entry;
+}
 
+function addLogEntries(events) {
+  const fragment = document.createDocumentFragment();
+  for (const event of events) fragment.append(createLogEntry(event));
+  executionLog.append(fragment);
   while (executionLog.children.length > 200) executionLog.firstElementChild.remove();
   executionLog.scrollTop = executionLog.scrollHeight;
 }
@@ -413,7 +418,6 @@ stopDialog.addEventListener("cancel", event => event.preventDefault());
 document.querySelector("#clear-output-button").addEventListener("click", () => {
   executionLog.replaceChildren();
   monitorScreen.textContent = "";
-  stepCount.textContent = "0";
 });
 
 worker.addEventListener("message", ({ data }) => {
@@ -426,11 +430,15 @@ worker.addEventListener("message", ({ data }) => {
     showStopCandidate(data.reason);
     return;
   }
-  if (data.type === "event") {
+  if (data.type === "events") {
     stepCount.textContent = String(data.steps);
-    addLogEntry(data.event);
-    if (data.event.type === "print") {
-      monitorScreen.textContent += `${data.event.value}\n`;
+    let output = "";
+    addLogEntries(data.events);
+    for (const event of data.events) {
+      if (event.type === "print") output += `${event.value}\n`;
+    }
+    if (output) {
+      monitorScreen.append(document.createTextNode(output));
       monitorScreen.scrollTop = monitorScreen.scrollHeight;
     }
     return;
