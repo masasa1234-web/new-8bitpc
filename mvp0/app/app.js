@@ -42,6 +42,11 @@ const delimiterButton = document.querySelector("#delimiter-button");
 const completeButton = document.querySelector("#complete-button");
 const cancelPageEditButton = document.querySelector("#cancel-page-edit-button");
 const worker = new Worker("/app/execution-worker.js", { type: "module" });
+const stopDialog = document.querySelector("#stop-dialog");
+const stopReason = document.querySelector("#stop-reason");
+const stopLocations = document.querySelector("#stop-locations");
+const suppressChoice = document.querySelector("#suppress-choice");
+const suppressForRun = document.querySelector("#suppress-for-run");
 
 let session = createProgramSession(sample);
 let editingKey = null;
@@ -49,6 +54,7 @@ let editingPageNumber = null;
 let analysis;
 let saveTimer = null;
 let saveQueue = Promise.resolve();
+let pendingStopReason = null;
 
 source.value = sample;
 
@@ -284,6 +290,50 @@ function addLogEntry(event) {
   executionLog.scrollTop = executionLog.scrollHeight;
 }
 
+function showStopCandidate(reason) {
+  pendingStopReason = reason;
+  stopLocations.replaceChildren();
+  suppressForRun.checked = false;
+  suppressChoice.hidden = !reason.atCap;
+
+  if (reason.type === "skippedMajority") {
+    const percentage = Math.round(reason.skippedRatio * 100);
+    stopReason.textContent =
+      `ステップ${reason.step}：直近${reason.observedSteps}ステップ中${reason.skippedCount}ステップ（${percentage}%）で、未解釈・誤り・重複の行を飛ばしました。`;
+    const shownRows = reason.rows.slice(0, 5);
+    for (const row of shownRows) {
+      const location = `ページ${row.pageNumber}・入力行${row.pageLine}・BASIC行${row.lineNumber ?? "不明"}（${row.status}）`;
+      appendText(stopLocations, "li", "", row.reason ? `${location}：${row.reason}` : location);
+    }
+    if (reason.rows.length > shownRows.length) {
+      appendText(stopLocations, "li", "", `ほか${reason.rows.length - shownRows.length}行`);
+    }
+  } else {
+    stopReason.textContent =
+      `ステップ${reason.step}：${reason.stepsWithoutOutput}ステップ連続でPRINT出力がありません。`;
+    if (reason.location) {
+      appendText(
+        stopLocations,
+        "li",
+        "",
+        `直近の位置：ページ${reason.location.pageNumber}・入力行${reason.location.pageLine}・BASIC行${reason.location.lineNumber}`
+      );
+    }
+  }
+  if (!stopDialog.open) stopDialog.showModal();
+}
+
+function resolveStopDecision(decision) {
+  if (!pendingStopReason) return;
+  worker.postMessage({
+    type: "resolve-stop",
+    decision,
+    suppressForRun: decision === "continue" && suppressForRun.checked
+  });
+  if (stopDialog.open) stopDialog.close();
+  pendingStopReason = null;
+}
+
 source.addEventListener("input", () => {
   if (editingPageNumber !== null) return;
   session = updateDraft(session, source.value);
@@ -326,6 +376,13 @@ runButton.addEventListener("click", () => {
 });
 
 stopButton.addEventListener("click", () => worker.postMessage({ type: "stop" }));
+document.querySelector("#continue-execution-button").addEventListener("click", () => {
+  resolveStopDecision("continue");
+});
+document.querySelector("#stop-execution-button").addEventListener("click", () => {
+  resolveStopDecision("stop");
+});
+stopDialog.addEventListener("cancel", event => event.preventDefault());
 document.querySelector("#clear-output-button").addEventListener("click", () => {
   executionLog.replaceChildren();
   monitorScreen.textContent = "";
@@ -334,6 +391,10 @@ document.querySelector("#clear-output-button").addEventListener("click", () => {
 
 worker.addEventListener("message", ({ data }) => {
   if (data.type === "started") return;
+  if (data.type === "stop-candidate") {
+    showStopCandidate(data.reason);
+    return;
+  }
   if (data.type === "event") {
     stepCount.textContent = String(data.steps);
     addLogEntry(data.event);
@@ -345,6 +406,8 @@ worker.addEventListener("message", ({ data }) => {
   }
   if (data.type === "finished" || data.type === "stopped") {
     stepCount.textContent = String(data.steps);
+    if (stopDialog.open) stopDialog.close();
+    pendingStopReason = null;
     setRunning(false);
   }
 });

@@ -102,6 +102,22 @@
           </section>
         </section>
       </div>
+      <dialog id="stop-dialog" class="stop-dialog" aria-labelledby="stop-dialog-title">
+        <form method="dialog" id="stop-decision-form">
+          <p class="zone-number">実行状態の確認</p>
+          <h2 id="stop-dialog-title">実行を一時停止しました</h2>
+          <p id="stop-reason" class="stop-reason"></p>
+          <ul id="stop-locations" class="stop-locations"></ul>
+          <label id="suppress-choice" class="suppress-choice" hidden>
+            <input id="suppress-for-run" type="checkbox">
+            <span>この実行中は、この理由で確認しない</span>
+          </label>
+          <div class="button-row stop-dialog-actions">
+            <button id="continue-execution-button" type="button">続ける</button>
+            <button id="stop-execution-button" type="button" class="stop-button">やめる</button>
+          </div>
+        </form>
+      </dialog>
       <footer>1-A：PRINT文字列・GOTOのみ対応。入力・解釈・実行は暫定実装です。AI接続と修正案は未実装です。</footer>
     </main>
   </body>

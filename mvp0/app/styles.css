@@ -227,6 +227,24 @@ textarea:focus, button:focus-visible { outline: 2px solid #75c4e6; outline-offse
 .log-entry { flex: 0 0 auto; border-left-color: #55a7c7; }
 .log-entry[data-type="print"] .log-detail { color: #a5e1b5; font: 14px Consolas, "Cascadia Mono", monospace; }
 .empty-state { color: var(--muted); font-size: .88rem; }
+.stop-dialog {
+  width: min(560px, calc(100% - 32px));
+  border: 1px solid #687786;
+  border-radius: 12px;
+  padding: 22px;
+  background: #19212a;
+  color: #e8edf2;
+  box-shadow: 0 20px 70px #000a;
+}
+.stop-dialog::backdrop { background: #05080bc9; }
+.stop-dialog h2 { margin: 0 0 12px; }
+.stop-reason { margin: 0; line-height: 1.55; }
+.stop-locations { max-height: 190px; overflow: auto; margin: 12px 0; padding-left: 22px; color: #d3bf9a; font-size: .86rem; }
+.stop-locations:empty { display: none; }
+.suppress-choice { display: flex; align-items: flex-start; gap: 9px; margin: 14px 0; padding: 10px; border: 1px solid #596776; border-radius: 7px; color: #f0d99c; font-size: .88rem; }
+.suppress-choice[hidden] { display: none; }
+.suppress-choice input { margin-top: 3px; }
+.stop-dialog-actions { margin-top: 18px; }
 footer { margin-top: 16px; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
