@@ -31,11 +31,23 @@ an earlier page is being edited. **訂正** on a parsed row remains available
 for a single-line correction.
 
 The correction history records timestamp, page, input-line position, and the
-before/after line text in memory only; it is not part of Raw and is lost when
-the page reloads. Multi-line page edits match unchanged lines so insertions
-and deletions do not incorrectly mark following unchanged lines as edited.
-Added or removed lines have an empty before or after value. Undo/redo and
-persistent storage are not included.
+before/after line text and change source (`human` or `ai(承認つき)`); it is
+kept separately from Raw. Initial input is not a correction-history entry.
+Multi-line page edits match unchanged lines so insertions and deletions do not
+incorrectly mark following unchanged lines as edited. Added or removed lines
+have an empty before or after value.
+
+The project is automatically saved in this browser's IndexedDB. Use **JSONを
+書き出す** and **JSONを読み込む** for a portable UTF-8 project file. The JSON
+includes `formatVersion` and stores Raw page strings, pending input, completion
+state, and correction history; analysis results and display-only values such
+as counts or border color are recomputed and are not saved. Import checks the
+format version and asks before replacing the current project.
+
+Browser storage is scoped to the page origin, including its port. The normal
+server URL uses port `4173`; changing ports opens a separate browser storage
+area. Export JSON before switching ports and import it at the new URL.
+Undo/redo is not included.
 
 The monitor displays only program output from `PRINT`. The execution log is
 separate and shows visited lines, step numbers, and skipped-row reasons.

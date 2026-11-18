@@ -10,6 +10,22 @@ function buildSession(pages, draft, complete, correctionHistory) {
   };
 }
 
+export function restoreProgramSession({ pages, draft = "", complete = false, correctionHistory = [] }) {
+  const restoredPages = pages.map((page, index) => ({
+    pageNumber: index + 1,
+    raw: page.raw
+  }));
+  const restoredHistory = correctionHistory.map(item => ({
+    timestamp: item.timestamp,
+    pageNumber: item.pageNumber,
+    pageLine: item.pageLine,
+    before: item.before,
+    after: item.after,
+    changedBy: item.changedBy ?? "human"
+  }));
+  return buildSession(restoredPages, draft, complete, restoredHistory);
+}
+
 export function createProgramSession(initialDraft = "") {
   return buildSession([], initialDraft, false, []);
 }
@@ -29,6 +45,10 @@ export function commitPage(session) {
 
 function lineText(line) {
   return line.replace(/(\r\n|\n|\r)$/, "");
+}
+
+function lineEnding(line) {
+  return /(\r\n|\n|\r)$/.exec(line)?.[0] ?? "";
 }
 
 function findUnchangedLines(before, after) {
@@ -62,19 +82,26 @@ function findUnchangedLines(before, after) {
   return matches;
 }
 
-export function replacePage(session, pageNumber, raw, timestamp = new Date().toISOString()) {
+export function replacePage(session, pageNumber, raw, timestamp = new Date().toISOString(), changedBy = "human") {
   const pageIndex = session.pages.findIndex(page => page.pageNumber === pageNumber);
   if (pageIndex === -1) throw new RangeError(`ページ${pageNumber}が見つかりません。`);
   const page = session.pages[pageIndex];
-  if (page.raw === raw) {
+  const beforeRawLines = splitLinesWithEndings(page.raw);
+  const afterRawLines = splitLinesWithEndings(raw);
+  const beforeLines = beforeRawLines.map(lineText);
+  const afterLines = afterRawLines.map(lineText);
+  const matches = findUnchangedLines(beforeLines, afterLines);
+  for (const match of matches) {
+    afterRawLines[match.afterIndex] =
+      `${afterLines[match.afterIndex]}${lineEnding(beforeRawLines[match.beforeIndex])}`;
+  }
+  const preservedRaw = afterRawLines.join("");
+  if (page.raw === preservedRaw) {
     return buildSession(session.pages, session.draft, false, session.correctionHistory);
   }
 
-  const beforeLines = splitLinesWithEndings(page.raw).map(lineText);
-  const afterLines = splitLinesWithEndings(raw).map(lineText);
   const history = [...session.correctionHistory];
 
-  const matches = findUnchangedLines(beforeLines, afterLines);
   const recordUnmatchedLines = (beforeEnd, afterEnd, beforeStart, afterStart) => {
     const changedLineCount = Math.min(beforeEnd - beforeStart, afterEnd - afterStart);
     for (let offset = 0; offset < changedLineCount; offset += 1) {
@@ -83,7 +110,8 @@ export function replacePage(session, pageNumber, raw, timestamp = new Date().toI
         pageNumber,
         pageLine: beforeStart + offset + 1,
         before: beforeLines[beforeStart + offset],
-        after: afterLines[afterStart + offset]
+        after: afterLines[afterStart + offset],
+        changedBy
       });
     }
     for (let index = beforeStart + changedLineCount; index < beforeEnd; index += 1) {
@@ -92,7 +120,8 @@ export function replacePage(session, pageNumber, raw, timestamp = new Date().toI
         pageNumber,
         pageLine: index + 1,
         before: beforeLines[index],
-        after: ""
+        after: "",
+        changedBy
       });
     }
     for (let index = afterStart + changedLineCount; index < afterEnd; index += 1) {
@@ -101,7 +130,8 @@ export function replacePage(session, pageNumber, raw, timestamp = new Date().toI
         pageNumber,
         pageLine: index + 1,
         before: "",
-        after: afterLines[index]
+        after: afterLines[index],
+        changedBy
       });
     }
   };
@@ -115,7 +145,7 @@ export function replacePage(session, pageNumber, raw, timestamp = new Date().toI
   }
 
   const pages = session.pages.map((item, index) =>
-    index === pageIndex ? { ...item, raw } : item
+    index === pageIndex ? { ...item, raw: preservedRaw } : item
   );
   return buildSession(pages, session.draft, false, history);
 }
@@ -138,7 +168,7 @@ function splitLinesWithEndings(raw) {
   return parts.filter(part => part.length > 0);
 }
 
-export function correctSourceLine(session, pageNumber, pageLine, correctedText, timestamp = new Date().toISOString()) {
+export function correctSourceLine(session, pageNumber, pageLine, correctedText, timestamp = new Date().toISOString(), changedBy = "human") {
   const pageIndex = session.pages.findIndex(page => page.pageNumber === pageNumber);
   if (pageIndex === -1) throw new RangeError(`ページ${pageNumber}が見つかりません。`);
 
@@ -162,7 +192,8 @@ export function correctSourceLine(session, pageNumber, pageLine, correctedText, 
     pageNumber,
     pageLine,
     before,
-    after: correctedText
+    after: correctedText,
+    changedBy
   };
   return buildSession(pages, session.draft, false, [...session.correctionHistory, correction]);
 }

@@ -26,6 +26,15 @@
         <span>未解釈 <strong id="uninterpreted-count">0</strong></span>
         <span>参照待ち <strong id="waiting-count">0</strong></span>
       </section>
+      <section class="project-controls" aria-label="プロジェクトの保存と読み込み">
+        <div class="project-actions">
+          <button id="export-project-button" type="button" class="secondary">JSONを書き出す</button>
+          <button id="import-project-button" type="button" class="secondary">JSONを読み込む</button>
+          <input id="import-project-file" type="file" accept=".json,application/json" hidden>
+        </div>
+        <p id="save-status" class="save-status" role="status" aria-live="polite">ブラウザー内に自動保存します。</p>
+        <p class="storage-notice">ブラウザー保存はこのURL専用です。ポートを変えると別の保存領域になります。別ポートへ移る前にJSONを書き出してください。</p>
+      </section>
       <section class="page-summary" aria-label="区切りごとの解析件数">
         <h2>区切りごとの件数</h2>
         <div id="page-counts" class="page-count-list"></div>

@@ -7,10 +7,20 @@ import {
   replacePage,
   updateDraft
 } from "../src/program-session.js";
+import {
+  loadProject,
+  parseProject,
+  saveProject,
+  serializeProject
+} from "../src/project-store.js";
 
 const sample = '10 PRINT "HELLO"\n20 GOTO 10';
 const app = document.querySelector("#app");
 const source = document.querySelector("#source");
+const saveStatus = document.querySelector("#save-status");
+const importProjectFile = document.querySelector("#import-project-file");
+const exportProjectButton = document.querySelector("#export-project-button");
+const importProjectButton = document.querySelector("#import-project-button");
 const sourceLabel = document.querySelector("#source-label");
 const sourceHelp = document.querySelector("#source-help");
 const committedPages = document.querySelector("#committed-pages");
@@ -37,6 +47,8 @@ let session = createProgramSession(sample);
 let editingKey = null;
 let editingPageNumber = null;
 let analysis;
+let saveTimer = null;
+let saveQueue = Promise.resolve();
 
 source.value = sample;
 
@@ -92,7 +104,8 @@ function renderHistory() {
   for (const item of session.correctionHistory) {
     const entry = document.createElement("li");
     appendText(entry, "time", "", item.timestamp);
-    appendText(entry, "span", "", ` · ページ${item.pageNumber} 入力行${item.pageLine}`);
+    const actor = item.changedBy === "ai(承認つき)" ? "AI（承認つき）" : "人間";
+    appendText(entry, "span", "", ` · ${actor} · ページ${item.pageNumber} 入力行${item.pageLine}`);
     appendText(entry, "pre", "history-source", `前: ${item.before}\n後: ${item.after}`);
     correctionHistory.append(entry);
   }
@@ -141,6 +154,7 @@ function renderAnalysis() {
         session = correctSourceLine(session, row.pageNumber, row.pageLine, input.value);
         editingKey = null;
         render();
+        scheduleSave({ immediate: true });
       });
       cancel.addEventListener("click", () => {
         editingKey = null;
@@ -203,6 +217,27 @@ function render() {
   renderAnalysis();
 }
 
+function scheduleSave({ immediate = false } = {}) {
+  if (saveTimer !== null) {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+  }
+  const persist = () => {
+    const snapshot = session;
+    saveStatus.textContent = "ブラウザー内に保存中…";
+    saveQueue = saveQueue
+      .then(() => saveProject(snapshot))
+      .then(() => {
+        saveStatus.textContent = `ブラウザー内に保存済み（${new Date().toLocaleTimeString()}）`;
+      })
+      .catch(error => {
+        saveStatus.textContent = `ブラウザー内に保存できませんでした: ${error.message} JSONを書き出してください。`;
+      });
+  };
+  if (immediate) persist();
+  else saveTimer = setTimeout(persist, 300);
+}
+
 function beginPageEdit(page) {
   if (editingPageNumber !== null) return;
   editingKey = null;
@@ -218,6 +253,7 @@ function savePageEdit() {
   session = replacePage(session, pageNumber, source.value);
   editingPageNumber = null;
   renderPageEditor();
+  scheduleSave({ immediate: true });
 }
 
 function setRunning(running) {
@@ -252,6 +288,7 @@ source.addEventListener("input", () => {
   if (editingPageNumber !== null) return;
   session = updateDraft(session, source.value);
   renderAnalysis();
+  scheduleSave();
 });
 
 delimiterButton.addEventListener("click", () => {
@@ -262,6 +299,7 @@ delimiterButton.addEventListener("click", () => {
   }
   editingKey = null;
   render();
+  scheduleSave({ immediate: true });
 });
 
 completeButton.addEventListener("click", () => {
@@ -269,6 +307,7 @@ completeButton.addEventListener("click", () => {
   session = completeProgram(session);
   editingKey = null;
   render();
+  scheduleSave({ immediate: true });
 });
 
 cancelPageEditButton.addEventListener("click", () => {
@@ -315,4 +354,74 @@ worker.addEventListener("error", event => {
   setRunning(false);
 });
 
-render();
+exportProjectButton.addEventListener("click", () => {
+  try {
+    const exportSession = editingPageNumber === null
+      ? session
+      : replacePage(session, editingPageNumber, source.value);
+    const blob = new Blob([serializeProject(exportSession)], {
+      type: "application/json;charset=utf-8"
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `new8bitpc-project-${new Date().toISOString().replaceAll(":", "-")}.json`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+    saveStatus.textContent = "プロジェクトJSONを書き出しました。UTF-8・形式バージョン1です。";
+  } catch (error) {
+    saveStatus.textContent = `JSONを書き出せませんでした: ${error.message}`;
+  }
+});
+
+importProjectButton.addEventListener("click", () => importProjectFile.click());
+importProjectFile.addEventListener("change", async () => {
+  const file = importProjectFile.files?.[0];
+  importProjectFile.value = "";
+  if (!file) return;
+
+  try {
+    const bytes = await file.arrayBuffer();
+    const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    const imported = parseProject(text);
+    if (!window.confirm("現在のRaw・未区切り入力・訂正履歴を、選択したJSONの内容で置き換えます。よろしいですか？")) {
+      return;
+    }
+    session = imported.session;
+    editingKey = null;
+    editingPageNumber = null;
+    executionLog.replaceChildren();
+    monitorScreen.textContent = "";
+    stepCount.textContent = "0";
+    render();
+    scheduleSave({ immediate: true });
+    saveStatus.textContent = "JSONを読み込み、ブラウザー内へ保存しました。";
+  } catch (error) {
+    saveStatus.textContent = `JSONを読み込めませんでした: ${error.message}`;
+  }
+});
+
+async function initialize() {
+  app.inert = true;
+  try {
+    const saved = await loadProject();
+    if (saved) {
+      session = saved.session;
+      saveStatus.textContent = saved.savedAt
+        ? `ブラウザー内の保存データを読み込みました（${saved.savedAt}）。`
+        : "ブラウザー内の保存データを読み込みました。";
+    } else {
+      await saveProject(session);
+      saveStatus.textContent = "新しいプロジェクトをブラウザー内へ保存しました。";
+    }
+  } catch (error) {
+    saveStatus.textContent = `ブラウザー内の保存データを読み込めませんでした: ${error.message} JSONの読み込み・書き出しは利用できます。`;
+  }
+  render();
+  app.inert = false;
+  if (!saveStatus.textContent.startsWith("ブラウザー内の保存データを読み込めませんでした:")) {
+    scheduleSave({ immediate: true });
+  }
+}
+
+initialize();

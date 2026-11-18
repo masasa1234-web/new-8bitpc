@@ -13,8 +13,16 @@ import {
   createProgramSession,
   getProgramSignal,
   replacePage,
+  restoreProgramSession,
   updateDraft
 } from "../src/program-session.js";
+import {
+  createProjectData,
+  parseProject,
+  serializeProject,
+  PROJECT_FORMAT,
+  PROJECT_FORMAT_VERSION
+} from "../src/project-store.js";
 
 test("the two-line sample is understood and executes in BASIC line order", () => {
   const analysis = analyzeProgram('10 PRINT "HELLO"\n20 GOTO 10');
@@ -163,7 +171,8 @@ test("editing one line preserves other raw text and keeps an independent tempora
     pageNumber: 1,
     pageLine: 1,
     before: '10 PRINT "BAD"',
-    after: '10 PRINT "GOOD"'
+    after: '10 PRINT "GOOD"',
+    changedBy: "human"
   }]);
 
   const unchanged = correctSourceLine(session, 1, 1, '10 PRINT "GOOD"', "later");
@@ -212,13 +221,15 @@ test("editing a committed Raw page replaces it in place, reanalyzes, and records
     pageNumber: 1,
     pageLine: 1,
     before: '10 PRINT "FIRST"',
-    after: '10PRINT"UPDATED"'
+    after: '10PRINT"UPDATED"',
+    changedBy: "human"
   }, {
     timestamp: "2026-11-17T01:00:00.000Z",
     pageNumber: 1,
     pageLine: 2,
     before: "",
-    after: "20 GOTO 10"
+    after: "20 GOTO 10",
+    changedBy: "human"
   }]);
 
   const sameRaw = replacePage(session, 1, session.pages[0].raw, "later");
@@ -241,7 +252,8 @@ test("editing one line of a two-line page preserves the other line and exact Raw
     pageNumber: 1,
     pageLine: 2,
     before: '20 PRINT "BBB"',
-    after: '20 PRINT "CCC"'
+    after: '20 PRINT "CCC"',
+    changedBy: "human"
   }]);
 });
 
@@ -258,7 +270,8 @@ test("page edit history records inserted or deleted lines without marking shifte
     pageNumber: 1,
     pageLine: 2,
     before: '20 PRINT "B"',
-    after: ""
+    after: "",
+    changedBy: "human"
   }]);
 
   session = replacePage(
@@ -272,7 +285,73 @@ test("page edit history records inserted or deleted lines without marking shifte
     pageNumber: 1,
     pageLine: 2,
     before: "",
-    after: '20 PRINT "NEW"'
+    after: '20 PRINT "NEW"',
+    changedBy: "human"
   });
   assert.equal(session.correctionHistory.length, 2);
+});
+
+test("project JSON round-trips exact Raw line endings and history without derived display data", () => {
+  let session = commitPage(createProgramSession('10PRINT"A"\r\n20 PRINT "B"'));
+  session = correctSourceLine(session, 1, 2, '20 PRINT "日本語"', "2026-11-18T00:00:00.000Z");
+  session = updateDraft(session, '90 PRINT "DRAFT"\r\n');
+  const json = serializeProject(session, "2026-11-18T00:01:00.000Z");
+  const parsedData = JSON.parse(json);
+  const restored = parseProject(json);
+
+  assert.equal(parsedData.format, PROJECT_FORMAT);
+  assert.equal(parsedData.formatVersion, PROJECT_FORMAT_VERSION);
+  assert.equal(parsedData.session.pages[0].raw, '10PRINT"A"\r\n20 PRINT "日本語"');
+  assert.equal(parsedData.session.draft, '90 PRINT "DRAFT"\r\n');
+  assert.equal(parsedData.session.correctionHistory[0].changedBy, "human");
+  assert.equal("analysis" in parsedData.session, false);
+  assert.equal("counts" in parsedData.session, false);
+  assert.equal("borderColor" in parsedData.session, false);
+  assert.equal(restored.session.pages[0].raw, '10PRINT"A"\r\n20 PRINT "日本語"');
+  assert.equal(restored.session.draft, '90 PRINT "DRAFT"\r\n');
+  assert.deepEqual(restored.session.correctionHistory, [{
+    timestamp: "2026-11-18T00:00:00.000Z",
+    pageNumber: 1,
+    pageLine: 2,
+    before: '20 PRINT "B"',
+    after: '20 PRINT "日本語"',
+    changedBy: "human"
+  }]);
+
+  const normalizedFromTextarea = restoreProgramSession({
+    pages: [{ pageNumber: 1, raw: '10 PRINT "A"\r\n20 PRINT "B"' }]
+  });
+  const editedInTextarea = replacePage(
+    normalizedFromTextarea,
+    1,
+    '10 PRINT "A"\n20 PRINT "C"',
+    "2026-11-18T00:02:00.000Z"
+  );
+  assert.equal(editedInTextarea.pages[0].raw, '10 PRINT "A"\r\n20 PRINT "C"');
+  assert.equal(editedInTextarea.correctionHistory.length, 1);
+  assert.equal(editedInTextarea.correctionHistory[0].pageLine, 2);
+});
+
+test("project JSON retains approved-AI change source without logging initial input", () => {
+  const session = restoreProgramSession({
+    pages: [{ pageNumber: 1, raw: '10 PRINT "A"' }],
+    correctionHistory: [{
+      timestamp: "2026-11-18T00:03:00.000Z",
+      pageNumber: 1,
+      pageLine: 1,
+      before: '10 PRINT "OLD"',
+      after: '10 PRINT "A"',
+      changedBy: "ai(承認つき)"
+    }]
+  });
+  const restored = parseProject(serializeProject(session)).session;
+  assert.equal(restored.correctionHistory[0].changedBy, "ai(承認つき)");
+  assert.equal(createProgramSession('10 PRINT "FIRST"').correctionHistory.length, 0);
+});
+
+test("JSON import rejects unsupported project versions", () => {
+  const session = createProgramSession("10 PRINT \"A\"");
+  const data = createProjectData(session);
+  data.formatVersion = PROJECT_FORMAT_VERSION + 1;
+  assert.throws(() => parseProject(JSON.stringify(data)), /未対応のデータ形式バージョン/);
 });

@@ -95,6 +95,19 @@ h2 { margin-bottom: 0; font-size: 1.15rem; }
 
 .summary strong { margin-left: 5px; color: #f3f6f8; }
 
+.project-controls {
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #141c23;
+}
+
+.project-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.save-status, .storage-notice { margin: 8px 0 0; color: var(--muted); font-size: .82rem; overflow-wrap: anywhere; }
+.save-status { color: #b8d5c1; }
+.storage-notice { color: #d7bd87; }
+
 .page-summary {
   margin: 0 0 16px;
   padding: 10px 12px;
