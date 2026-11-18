@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>New8bitPC Windows MVP</title>
+    <link rel="stylesheet" href="/app/styles.css">
+    <script type="module" src="/app/app.js"></script>
+  </head>
+  <body>
+    <main id="app" data-state="normal">
+      <header class="page-header">
+        <div>
+          <p class="eyebrow">New8bitPC / Windows MVP 1-A</p>
+          <h1>原文から、理解して、動かす</h1>
+          <p class="subtitle">原文はそのまま。解釈と実行は、いつでも作り直せます。</p>
+        </div>
+        <div class="status-card" aria-live="polite">
+          <span class="status-light" aria-hidden="true"></span>
+          <span id="overall-status">通常</span>
+        </div>
+      </header>
+
+      <section class="summary" aria-label="解析件数">
+        <span>誤り <strong id="error-count">0</strong></span>
+        <span>未解釈 <strong id="uninterpreted-count">0</strong></span>
+        <span>参照待ち <strong id="waiting-count">0</strong></span>
+      </section>
+      <section class="page-summary" aria-label="区切りごとの解析件数">
+        <h2>区切りごとの件数</h2>
+        <div id="page-counts" class="page-count-list"></div>
+      </section>
+
+      <div class="zones">
+        <section class="zone raw-zone">
+          <div class="zone-heading">
+            <div>
+              <p class="zone-number">01 / RAW</p>
+              <h2>原文</h2>
+            </div>
+            <span class="zone-note">解析・実行はRawを変更しません</span>
+          </div>
+          <div id="committed-pages" class="committed-pages"></div>
+          <label id="source-label" class="input-label" for="source">次のページを入力</label>
+          <textarea id="source" spellcheck="false" aria-describedby="source-help"></textarea>
+          <p id="source-help" class="help-text">行番号の順序は自由です。入力したページは「区切り」で解析します。</p>
+          <div class="button-row">
+            <button id="delimiter-button" type="button">区切り</button>
+            <button id="cancel-page-edit-button" type="button" class="secondary" hidden>編集をキャンセル</button>
+            <button id="complete-button" type="button" class="secondary">完成</button>
+          </div>
+          <p id="complete-status" class="inline-status">入力中：参照先は後から追加できます。</p>
+          <details class="history-panel">
+            <summary>訂正履歴 <span id="history-count">0</span>件（一時記録）</summary>
+            <ol id="correction-history" class="history-list"></ol>
+          </details>
+        </section>
+
+        <section class="zone parsed-zone">
+          <div class="zone-heading">
+            <div>
+              <p class="zone-number">02 / PARSED</p>
+              <h2>解釈</h2>
+            </div>
+            <span class="zone-note">ページ・入力位置・行番号を表示</span>
+          </div>
+          <div id="parsed-rows" class="row-list" aria-live="polite"></div>
+        </section>
+
+        <section class="zone execution-zone">
+          <div class="zone-heading">
+            <div>
+              <p class="zone-number">03 / EXECUTABLE</p>
+              <h2>実行</h2>
+            </div>
+            <span class="step-counter">ステップ <strong id="step-count">0</strong></span>
+          </div>
+          <div class="button-row">
+            <button id="run-button" type="button">実行</button>
+            <button id="stop-button" type="button" class="stop-button" disabled>停止</button>
+            <button id="clear-output-button" type="button" class="secondary">表示を消去</button>
+          </div>
+          <section class="monitor-panel" aria-labelledby="monitor-heading">
+            <div class="monitor-heading">
+              <h3 id="monitor-heading">モニター</h3>
+              <span>プログラム出力</span>
+            </div>
+            <pre id="monitor-screen" class="monitor-screen" aria-live="polite" aria-label="BASICプログラムの出力"></pre>
+          </section>
+          <section class="log-panel" aria-labelledby="log-heading">
+            <h3 id="log-heading">実行ログ</h3>
+            <div id="execution-log" class="execution-log" role="log" aria-live="polite" aria-relevant="additions"></div>
+          </section>
+        </section>
+      </div>
+      <footer>1-A：PRINT文字列・GOTOのみ対応。入力・解釈・実行は暫定実装です。AI接続と修正案は未実装です。</footer>
+    </main>
+  </body>
+</html>
