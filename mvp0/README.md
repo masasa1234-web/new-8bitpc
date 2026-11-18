@@ -52,6 +52,21 @@ Undo/redo is not included.
 The monitor displays only program output from `PRINT`. The execution log is
 separate and shows visited lines, step numbers, and skipped-row reasons.
 
+## Execution safeguards (temporary MVP settings)
+
+Execution pauses when at least half of the last 20 counted steps were skipped,
+after a minimum of 10 steps, or after 500 consecutive steps without `PRINT`
+output. Unresolved references are excluded until **完成**. Choosing **続ける**
+doubles the next check interval, up to 160 steps for skipped rows and 4,000
+steps without output. At the cap, the prompt can be suppressed for that reason
+for the current run only. **停止** remains available while the worker runs.
+
+On **区切り**, a page with at least five rows and a majority of uninterpreted
+rows, or a page where every row is uninterpreted, gets a non-blocking notice.
+The profile mismatch is presented as a possibility, not a diagnosis. These
+thresholds and rules are provisional and may change as supported statements
+are added.
+
 ## Automated tests
 
 ```powershell
@@ -77,3 +92,6 @@ node --test
    uninterpreted. Expand a committed page, edit its Raw, and update it. Confirm
    the page number stays the same, analysis refreshes, the pending next-page
    text remains, and changed lines appear in temporary correction history.
+7. Delimit a page with five or more mostly uninterpreted rows and confirm the
+   profile caution appears without stopping input. Confirm a page with all rows
+   uninterpreted also gets the notice, even when it has fewer than five rows.
