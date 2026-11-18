@@ -39,6 +39,7 @@ const historyCount = document.querySelector("#history-count");
 const correctionHistory = document.querySelector("#correction-history");
 const stepCount = document.querySelector("#step-count");
 const suppressionStatus = document.querySelector("#suppression-status");
+const executionStatus = document.querySelector("#execution-status");
 const runButton = document.querySelector("#run-button");
 const stopButton = document.querySelector("#stop-button");
 const delimiterButton = document.querySelector("#delimiter-button");
@@ -401,13 +402,18 @@ runButton.addEventListener("click", () => {
   executionLog.replaceChildren();
   monitorScreen.textContent = "";
   stepCount.textContent = "0";
+  executionStatus.textContent = "";
   updateSuppressionStatus();
   worker.postMessage({ type: "run", analysis });
   runButton.disabled = true;
   setRunning(true);
 });
 
-stopButton.addEventListener("click", () => worker.postMessage({ type: "stop" }));
+stopButton.addEventListener("click", () => {
+  executionStatus.textContent = "停止要求受付中です。命令の切れ目で停止します。";
+  stopButton.disabled = true;
+  worker.postMessage({ type: "stop" });
+});
 document.querySelector("#continue-execution-button").addEventListener("click", () => {
   resolveStopDecision("continue");
 });
@@ -445,6 +451,9 @@ worker.addEventListener("message", ({ data }) => {
   }
   if (data.type === "finished" || data.type === "stopped") {
     stepCount.textContent = String(data.steps);
+    executionStatus.textContent = data.type === "stopped"
+      ? `停止しました（累計ステップ${data.steps}）。`
+      : `実行が終了しました（累計ステップ${data.steps}）。`;
     if (stopDialog.open) stopDialog.close();
     pendingStopReason = null;
     updateSuppressionStatus();
