@@ -23,6 +23,12 @@ import {
   PROJECT_FORMAT,
   PROJECT_FORMAT_VERSION
 } from "../src/project-store.js";
+import {
+  continueAfterStop,
+  createStopPolicyState,
+  DEFAULT_STOP_SETTINGS,
+  observeExecutionStep
+} from "../src/stop-policy.js";
 
 test("the two-line sample is understood and executes in BASIC line order", () => {
   const analysis = analyzeProgram('10 PRINT "HELLO"\n20 GOTO 10');
@@ -354,4 +360,109 @@ test("JSON import rejects unsupported project versions", () => {
   const data = createProjectData(session);
   data.formatVersion = PROJECT_FORMAT_VERSION + 1;
   assert.throws(() => parseProject(JSON.stringify(data)), /未対応のデータ形式バージョン/);
+});
+
+function runWithStopPolicy(analysis, maximumSteps, settings = DEFAULT_STOP_SETTINGS) {
+  let execution = createExecutionState();
+  let policy = createStopPolicyState(settings);
+  for (let index = 0; index < maximumSteps; index += 1) {
+    const advanced = advanceExecution(analysis, execution);
+    execution = advanced.state;
+    if (!advanced.event) return { policy, stop: null };
+    const observed = observeExecutionStep(policy, advanced.event, analysis.complete, settings);
+    policy = observed.state;
+    if (observed.stop) return { policy, stop: observed.stop };
+  }
+  return { policy, stop: null };
+}
+
+test("B1 stops at the deterministic first step with a skipped-row majority and locations", () => {
+  const analysis = analyzeProgram("10 FOO\n20 GOTO 10");
+  const { stop } = runWithStopPolicy(analysis, 30);
+  assert.equal(stop.type, "skippedMajority");
+  assert.equal(stop.step, 10);
+  assert.equal(stop.observedSteps, 10);
+  assert.equal(stop.skippedCount, 5);
+  assert.equal(stop.skippedRatio, 0.5);
+  assert.ok(stop.rows.some(row => row.pageNumber === 1 && row.pageLine === 1 && row.lineNumber === 10));
+});
+
+test("B1 excludes unresolved references from the pre-completion ratio", () => {
+  const settings = { ...DEFAULT_STOP_SETTINGS, minimumObservedSteps: 3, skippedWindowSteps: 5 };
+  const missingTarget = analyzeProgram("10 GOTO 100");
+  const waitingRow = missingTarget.rows[0];
+  let state = createStopPolicyState(settings);
+  for (let step = 1; step <= 5; step += 1) {
+    const result = observeExecutionStep(
+      state,
+      { type: "skipped", row: waitingRow, step },
+      false,
+      settings
+    );
+    state = result.state;
+    assert.equal(result.stop, null);
+  }
+});
+
+test("B1 continue doubles recheck intervals to the cap, then supports run-only suppression", () => {
+  const settings = {
+    ...DEFAULT_STOP_SETTINGS,
+    minimumObservedSteps: 1,
+    skippedWindowSteps: 2,
+    maxSkippedRecheckSteps: 8,
+    noOutputSteps: 10000
+  };
+  const analysis = analyzeProgram("10 FOO\n20 GOTO 10");
+  let execution = createExecutionState();
+  let policy = createStopPolicyState(settings);
+  const nextStop = () => {
+    for (let index = 0; index < 100; index += 1) {
+      const advanced = advanceExecution(analysis, execution);
+      execution = advanced.state;
+      const observed = observeExecutionStep(policy, advanced.event, false, settings);
+      policy = observed.state;
+      if (observed.stop) return observed.stop;
+    }
+    return null;
+  };
+
+  assert.equal(nextStop().step, 1);
+  policy = continueAfterStop(policy, { type: "skippedMajority" }, false, settings);
+  assert.equal(policy.skippedRecheckSteps, 4);
+  assert.equal(nextStop().step, 5);
+  policy = continueAfterStop(policy, { type: "skippedMajority" }, false, settings);
+  assert.equal(policy.skippedRecheckSteps, 8);
+  const capped = nextStop();
+  assert.equal(capped.step, 13);
+  assert.equal(capped.atCap, true);
+
+  policy = continueAfterStop(policy, capped, true, settings);
+  assert.equal(policy.suppressedReasons.skippedMajority, true);
+  assert.equal(nextStop(), null);
+});
+
+test("B2 stops a no-output GOTO loop at 500 steps but leaves a PRINT loop running", () => {
+  const noOutput = runWithStopPolicy(analyzeProgram("10 GOTO 10"), 600);
+  assert.equal(noOutput.stop.type, "noOutput");
+  assert.equal(noOutput.stop.step, 500);
+  assert.equal(noOutput.stop.stepsWithoutOutput, 500);
+  assert.deepEqual(noOutput.stop.location, {
+    pageNumber: 1,
+    pageLine: 1,
+    lineNumber: 10
+  });
+
+  const printing = runWithStopPolicy(analyzeProgram('10 PRINT "HELLO"\n20 GOTO 10'), 1500);
+  assert.equal(printing.stop, null);
+});
+
+test("identical source and settings produce identical stop step and location", () => {
+  const raw = "10 FOO\n20 GOTO 10";
+  const settings = { ...DEFAULT_STOP_SETTINGS };
+  const first = runWithStopPolicy(analyzeProgram(raw), 40, settings).stop;
+  const second = runWithStopPolicy(analyzeProgram(raw), 40, settings).stop;
+  assert.deepEqual(
+    { type: first.type, step: first.step, rows: first.rows },
+    { type: second.type, step: second.step, rows: second.rows }
+  );
 });
