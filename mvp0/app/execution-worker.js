@@ -73,6 +73,10 @@ self.addEventListener("message", ({ data }) => {
       data.suppressForRun === true,
       DEFAULT_STOP_SETTINGS
     );
+    self.postMessage({
+      type: "suppression-state",
+      suppressedReasons: policyState.suppressedReasons
+    });
     waitingForDecision = false;
     pendingStop = null;
     void runLoop(runId);
@@ -89,6 +93,10 @@ self.addEventListener("message", ({ data }) => {
   executionState = createExecutionState();
   policyState = createStopPolicyState(DEFAULT_STOP_SETTINGS);
   pendingStop = null;
+  self.postMessage({
+    type: "suppression-state",
+    suppressedReasons: policyState.suppressedReasons
+  });
   self.postMessage({ type: "started" });
   void runLoop(runId);
 });

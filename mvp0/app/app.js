@@ -36,6 +36,7 @@ const completeStatus = document.querySelector("#complete-status");
 const historyCount = document.querySelector("#history-count");
 const correctionHistory = document.querySelector("#correction-history");
 const stepCount = document.querySelector("#step-count");
+const suppressionStatus = document.querySelector("#suppression-status");
 const runButton = document.querySelector("#run-button");
 const stopButton = document.querySelector("#stop-button");
 const delimiterButton = document.querySelector("#delimiter-button");
@@ -334,6 +335,16 @@ function resolveStopDecision(decision) {
   pendingStopReason = null;
 }
 
+function updateSuppressionStatus(suppressedReasons = {}) {
+  const activeReasons = [];
+  if (suppressedReasons.skippedMajority) activeReasons.push("飛ばした行が多い");
+  if (suppressedReasons.noOutput) activeReasons.push("PRINT出力がない");
+  suppressionStatus.hidden = activeReasons.length === 0;
+  suppressionStatus.textContent = activeReasons.length
+    ? `自動確認を抑止中（この実行のみ）：${activeReasons.join("、")}`
+    : "";
+}
+
 source.addEventListener("input", () => {
   if (editingPageNumber !== null) return;
   session = updateDraft(session, source.value);
@@ -370,6 +381,7 @@ runButton.addEventListener("click", () => {
   executionLog.replaceChildren();
   monitorScreen.textContent = "";
   stepCount.textContent = "0";
+  updateSuppressionStatus();
   worker.postMessage({ type: "run", analysis });
   runButton.disabled = true;
   setRunning(true);
@@ -391,6 +403,10 @@ document.querySelector("#clear-output-button").addEventListener("click", () => {
 
 worker.addEventListener("message", ({ data }) => {
   if (data.type === "started") return;
+  if (data.type === "suppression-state") {
+    updateSuppressionStatus(data.suppressedReasons);
+    return;
+  }
   if (data.type === "stop-candidate") {
     showStopCandidate(data.reason);
     return;
@@ -408,6 +424,7 @@ worker.addEventListener("message", ({ data }) => {
     stepCount.textContent = String(data.steps);
     if (stopDialog.open) stopDialog.close();
     pendingStopReason = null;
+    updateSuppressionStatus();
     setRunning(false);
   }
 });

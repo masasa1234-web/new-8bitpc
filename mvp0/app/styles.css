@@ -170,6 +170,8 @@ textarea:focus, button:focus-visible { outline: 2px solid #75c4e6; outline-offse
 .inline-status[data-complete="true"] { color: #a4d5b3; }
 .step-counter { color: var(--muted); white-space: nowrap; }
 .step-counter strong { color: #fff; font-variant-numeric: tabular-nums; }
+.suppression-status { margin: -5px 0 11px; border-left: 3px solid #d3a64e; padding: 6px 9px; background: #30291c; color: #f0d99c; font-size: .82rem; }
+.suppression-status[hidden] { display: none; }
 
 .row-list, .execution-log {
   display: flex;

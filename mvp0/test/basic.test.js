@@ -439,6 +439,7 @@ test("B1 continue doubles recheck intervals to the cap, then supports run-only s
   policy = continueAfterStop(policy, capped, true, settings);
   assert.equal(policy.suppressedReasons.skippedMajority, true);
   assert.equal(nextStop(), null);
+  assert.equal(createStopPolicyState(settings).suppressedReasons.skippedMajority, false);
 });
 
 test("B2 stops a no-output GOTO loop at 500 steps but leaves a PRINT loop running", () => {
