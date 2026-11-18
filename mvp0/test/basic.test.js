@@ -11,6 +11,7 @@ import {
   completeProgram,
   correctSourceLine,
   createProgramSession,
+  getDelimiterAttention,
   getProgramSignal,
   replacePage,
   restoreProgramSession,
@@ -201,6 +202,40 @@ test("the border signal is derived from current issue counts", () => {
   assert.deepEqual(getProgramSignal(normal), { state: "normal", label: "通常" });
   assert.deepEqual(getProgramSignal(attention), { state: "attention", label: "注意" });
   assert.deepEqual(getProgramSignal(warning), { state: "warning", label: "警告" });
+});
+
+test("delimiter attention requires five rows with a majority uninterpreted, except when all rows are uninterpreted", () => {
+  const getAttention = raw => {
+    const session = commitPage(createProgramSession(raw));
+    return getDelimiterAttention(session.analysis, 1);
+  };
+
+  assert.deepEqual(getAttention("10 FOO"), {
+    pageNumber: 1,
+    total: 1,
+    uninterpreted: 1
+  });
+  assert.deepEqual(getAttention("10 FOO\n20 BAR\n30 BAZ\n40 QUX"), {
+    pageNumber: 1,
+    total: 4,
+    uninterpreted: 4
+  });
+  assert.deepEqual(getAttention("10 FOO\n20 BAR\n30 BAZ\n40 QUX\n50 XYZ"), {
+    pageNumber: 1,
+    total: 5,
+    uninterpreted: 5
+  });
+  assert.deepEqual(getAttention('10 FOO\n20 FOO\n30 FOO\n40 FOO\n50 PRINT "OK"'), {
+    pageNumber: 1,
+    total: 5,
+    uninterpreted: 4
+  });
+  assert.deepEqual(getAttention('10 FOO\n20 FOO\n30 FOO\n40 PRINT "OK"\n50 PRINT "OK"'), {
+    pageNumber: 1,
+    total: 5,
+    uninterpreted: 3
+  });
+  assert.equal(getAttention('10 FOO\n20 FOO\n30 PRINT "OK"\n40 PRINT "OK"\n50 PRINT "OK"'), null);
 });
 
 test("editing a committed Raw page replaces it in place, reanalyzes, and records line changes", () => {

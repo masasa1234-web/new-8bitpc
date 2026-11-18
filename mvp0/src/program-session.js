@@ -1,4 +1,4 @@
-import { analyzePages } from "./basic.js";
+import { analyzePages, RowStatus } from "./basic.js";
 
 function buildSession(pages, draft, complete, correctionHistory) {
   return {
@@ -161,6 +161,16 @@ export function getProgramSignal(analysis) {
     return { state: "attention", label: "注意" };
   }
   return { state: "normal", label: "通常" };
+}
+
+export function getDelimiterAttention(analysis, pageNumber) {
+  const rows = analysis.rows.filter(row => row.pageNumber === pageNumber);
+  const total = rows.length;
+  const uninterpreted = rows.filter(row => row.status === RowStatus.uninterpreted).length;
+  if (total === 0 || (uninterpreted !== total && (total < 5 || uninterpreted <= total / 2))) {
+    return null;
+  }
+  return { pageNumber, total, uninterpreted };
 }
 
 function splitLinesWithEndings(raw) {

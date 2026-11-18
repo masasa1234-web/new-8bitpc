@@ -3,6 +3,7 @@ import {
   completeProgram,
   correctSourceLine,
   createProgramSession,
+  getDelimiterAttention,
   getProgramSignal,
   replacePage,
   updateDraft
@@ -33,6 +34,7 @@ const uninterpretedCount = document.querySelector("#uninterpreted-count");
 const waitingCount = document.querySelector("#waiting-count");
 const overallStatus = document.querySelector("#overall-status");
 const completeStatus = document.querySelector("#complete-status");
+const delimiterNotice = document.querySelector("#delimiter-notice");
 const historyCount = document.querySelector("#history-count");
 const correctionHistory = document.querySelector("#correction-history");
 const stepCount = document.querySelector("#step-count");
@@ -224,6 +226,13 @@ function render() {
   renderAnalysis();
 }
 
+function updateDelimiterNotice(attention) {
+  delimiterNotice.hidden = attention === null;
+  delimiterNotice.textContent = attention
+    ? `ページ${attention.pageNumber}の未解釈行は${attention.uninterpreted}/${attention.total}行です。機種（プロファイル）が合っていない可能性があります。`
+    : "";
+}
+
 function scheduleSave({ immediate = false } = {}) {
   if (saveTimer !== null) {
     clearTimeout(saveTimer);
@@ -249,6 +258,7 @@ function beginPageEdit(page) {
   if (editingPageNumber !== null) return;
   editingKey = null;
   editingPageNumber = page.pageNumber;
+  updateDelimiterNotice(null);
   source.value = page.raw;
   renderPageEditor();
   renderAnalysis();
@@ -348,22 +358,26 @@ function updateSuppressionStatus(suppressedReasons = {}) {
 source.addEventListener("input", () => {
   if (editingPageNumber !== null) return;
   session = updateDraft(session, source.value);
+  updateDelimiterNotice(null);
   renderAnalysis();
   scheduleSave();
 });
 
 delimiterButton.addEventListener("click", () => {
+  const pageNumber = editingPageNumber ?? session.pages.length + 1;
   if (editingPageNumber !== null) {
     savePageEdit();
   } else {
     session = commitPage(session);
   }
+  updateDelimiterNotice(getDelimiterAttention(session.analysis, pageNumber));
   editingKey = null;
   render();
   scheduleSave({ immediate: true });
 });
 
 completeButton.addEventListener("click", () => {
+  updateDelimiterNotice(null);
   if (editingPageNumber !== null) savePageEdit();
   session = completeProgram(session);
   editingKey = null;
@@ -373,6 +387,7 @@ completeButton.addEventListener("click", () => {
 
 cancelPageEditButton.addEventListener("click", () => {
   editingPageNumber = null;
+  updateDelimiterNotice(null);
   render();
 });
 
