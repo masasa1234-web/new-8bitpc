@@ -191,6 +191,14 @@ test("IF unresolved targets wait and become errors on completion", () => {
   const waiting = analyzeProgram(raw);
   assert.equal(waiting.rows[0].status, RowStatus.referenceWaiting);
 
+  let state = createExecutionState();
+  const result = advanceExecution(waiting, state);
+  assert.equal(result.event.type, "skipped");
+  assert.equal(result.event.row.status, RowStatus.referenceWaiting);
+  assert.equal(result.event.label.includes("参照待ち"), true);
+  assert.equal(result.state.done, false);
+  assert.equal(result.state.position, 1);
+
   const completed = analyzeProgram(raw, { complete: true });
   assert.equal(completed.rows[0].status, RowStatus.error);
   assert.match(completed.rows[0].reasons.join(" "), /行番号999がありません/);

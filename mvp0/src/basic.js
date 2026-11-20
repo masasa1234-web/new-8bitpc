@@ -454,10 +454,7 @@ function analyzePagesInternal(pages, { complete = false } = {}) {
     .toSorted((left, right) => left.lineNumber - right.lineNumber || left.sourceLine - right.sourceLine)
     .map(row => ({ ...row }));
   const executable = timeline
-    .filter(row =>
-      row.status === RowStatus.understood ||
-      (row.status === RowStatus.referenceWaiting && row.instruction?.type === "if")
-    )
+    .filter(row => row.status === RowStatus.understood)
     .map(row => ({
       sourceLine: row.sourceLine,
       lineNumber: row.lineNumber,
@@ -520,8 +517,7 @@ export function advanceExecution(analysis, state) {
   let event;
   let done = false;
 
-  if (row.status !== RowStatus.understood &&
-      !(row.status === RowStatus.referenceWaiting && row.instruction?.type === "if")) {
+  if (row.status !== RowStatus.understood) {
     const label = row.duplicate
       ? "重複のため実行対象外"
       : `${row.status}：${row.reasons.join(" ")}`;
@@ -537,6 +533,7 @@ export function advanceExecution(analysis, state) {
     const variables = { ...(state.variables ?? {}) };
     const evaluated = evaluateExpression(row.instruction.expression, variables);
     if (!evaluated.ok) {
+      done = true;
       done = true;
       event = {
         type: "runtime-error",
