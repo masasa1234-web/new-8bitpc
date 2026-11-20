@@ -130,3 +130,14 @@ Confirmed cases:
    `C=0.5`, `D=-1`, `E=0`, output `OK`, and cumulative 7 steps for normal exit.
 3. `10 LET X=Y+1` was parsed as understood and stopped at step 1 with
    `変数Yは未定義です。`.
+
+4. `10 LET A=1/0` stopped at step 1 with a division-by-zero runtime error.
+5. `10   a = ( 1 + 2 )` preserved its exact Raw text. Full-width `＋`, string
+   variables, colon-separated statements, empty expressions, and unmatched
+   parentheses were not inferred or executed but were reported as errors or
+   uninterpreted rows with reasons.
+6. After assigning `A=10`, rerunning the program initialized variables anew;
+   references to `A` then stopped with `変数Aは未定義です。`.
+
+- Implementation commit: `2fda42d`
+- Documentation commit: `c6c6195`
