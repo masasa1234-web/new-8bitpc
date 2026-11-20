@@ -142,6 +142,93 @@ test("END stops execution at its row and does not execute later lines", () => {
   assert.equal(after.state.steps, 2);
 });
 
+test("LET and bare assignment share arithmetic expression evaluation", () => {
+  const analysis = analyzeProgram(
+    '10 LET A=-5\n20 b=A*-2\n30 C=(10-3)+(b/2)\n40 D=C>=10'
+  );
+  assert.deepEqual(analysis.rows.map(row => row.status), [
+    RowStatus.understood,
+    RowStatus.understood,
+    RowStatus.understood,
+    RowStatus.understood
+  ]);
+
+  let state = createExecutionState();
+  const events = [];
+  for (let index = 0; index < 4; index += 1) {
+    const result = advanceExecution(analysis, state);
+    state = result.state;
+    events.push(result.event);
+  }
+
+  assert.deepEqual(events.map(event => [event.type, event.variable, event.value]), [
+    ["assign", "A", -5],
+    ["assign", "B", 10],
+    ["assign", "C", 12],
+    ["assign", "D", -1]
+  ]);
+  assert.deepEqual(state.variables, { A: -5, B: 10, C: 12, D: -1 });
+  assert.equal(state.steps, 4);
+});
+
+test("expression operators follow arithmetic and comparison rules", () => {
+  const analysis = analyzeProgram(
+    '10 A=1+2*3\n20 B=(1+2)*3\n30 C=10/4\n40 D=5<>5\n50 E=5>=5'
+  );
+  let state = createExecutionState();
+  const values = {};
+  for (let index = 0; index < 5; index += 1) {
+    const result = advanceExecution(analysis, state);
+    state = result.state;
+    values[result.event.variable] = result.event.value;
+  }
+  assert.deepEqual(values, { A: 7, B: 9, C: 2.5, D: 0, E: -1 });
+});
+
+test("undefined variables and division by zero are runtime errors", () => {
+  const undefinedVariable = analyzeProgram("10 LET A=B+1");
+  let state = createExecutionState();
+  let result = advanceExecution(undefinedVariable, state);
+  assert.equal(result.event.type, "runtime-error");
+  assert.match(result.event.reason, /変数Bは未定義/);
+  assert.deepEqual(result.state.variables, {});
+
+  state = result.state;
+  result = advanceExecution(undefinedVariable, state);
+  assert.equal(result.event, null);
+  assert.equal(result.state.done, true);
+
+  const divideByZero = analyzeProgram("10 LET A=1/0");
+  result = advanceExecution(divideByZero, createExecutionState());
+  assert.equal(result.event.type, "runtime-error");
+  assert.match(result.event.reason, /0で除算/);
+  assert.deepEqual(result.state.variables, {});
+});
+
+test("malformed assignment expressions and LET syntax are errors", () => {
+  const analysis = analyzeProgram("10 LET A=1+\n20 LET\n30 A=\n40 LET A=1");
+  assert.deepEqual(analysis.rows.map(row => row.status), [
+    RowStatus.error,
+    RowStatus.error,
+    RowStatus.error,
+    RowStatus.understood
+  ]);
+  assert.match(analysis.rows[0].reasons.join(" "), /代入式の書式/);
+  assert.match(analysis.rows[1].reasons.join(" "), /LETの代入先または式/);
+});
+
+test("expression support does not reinterpret PRINT or out-of-scope commands", () => {
+  const analysis = analyzeProgram(
+    '10 PRINT "A+B"\n20 PRINT A+1\n30 IF A=1 THEN 100\n40 INPUT A'
+  );
+  assert.deepEqual(analysis.rows.map(row => row.status), [
+    RowStatus.understood,
+    RowStatus.uninterpreted,
+    RowStatus.uninterpreted,
+    RowStatus.uninterpreted
+  ]);
+});
+
 test("missing GOTO targets wait until completion, then become errors", () => {
   const raw = "10 GOTO 100";
   assert.equal(analyzeProgram(raw).rows[0].status, RowStatus.referenceWaiting);

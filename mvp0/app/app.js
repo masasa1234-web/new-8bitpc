@@ -295,11 +295,15 @@ function createLogEntry(event) {
     : `#${event.step} · 入力行${event.row.sourceLine} / BASIC行${event.row.lineNumber} · ${
       event.type === "print" ? "PRINT" :
       event.type === "goto" ? `GOTO ${event.targetLine}` :
-      event.type === "rem" ? "REM（no-op）" : "END"
+      event.type === "rem" ? "REM（no-op）" :
+      event.type === "assign" ? `代入 ${event.variable} = ${event.value}` :
+      event.type === "runtime-error" ? "実行エラー" :
+      "END"
     }`;
   appendText(entry, "p", "row-meta", title);
   appendText(entry, "p", "log-source", event.row.sourceText);
   if (event.type === "print") appendText(entry, "p", "log-detail", event.value);
+  if (event.type === "runtime-error") appendText(entry, "p", "log-detail", event.reason);
   return entry;
 }
 
