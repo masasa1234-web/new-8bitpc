@@ -150,11 +150,35 @@ Confirmed cases:
 ## MVP 1-C implementation record
 
 - Implementation commit: `acd68d8`
+- Unresolved-target fix: `869f3df`
+- Fix documentation: `69f4300`
 - Automated tests: 37 passed
-- Browser manual confirmation: pending
+- Browser manual confirmation: confirmed OK
 - Implemented scope: `IF expression THEN line-number`, true jumps, false continues,
   unresolved targets follow GOTO reference handling, and runtime errors stop
   execution. Unsupported THEN forms remain uninterpreted.
+
+### MVP 1-C browser acceptance record
+
+- Date: 2026-11-20
+- Automated tests: 37 passed
+- Browser manual confirmation: confirmed OK
+
+Confirmed cases:
+
+1. True IF jumped to line 100 and ended normally at cumulative step 4. PRINT,
+   END, Raw preservation, and execution logs showed no regressions.
+2. False IF continued to the next row, output `NEXT`, and ended normally at
+   cumulative step 4. The log recorded assignment, false IF evaluation, PRINT,
+   and END.
+3. An unresolved target remained `参照待ち` before completion and was skipped
+   without speculative jump or true/false evaluation in the execution log.
+4. With line 100 defined, an undefined variable stopped at step 1 with
+   `変数Yは未定義です。` and did not reach line 100.
+5. With line 100 defined, division by zero stopped at step 1 with
+   `0で除算することはできません。` and did not execute lines 20 or 100.
+6. Unsupported IF forms were not inferred, and PRINT, END, GOTO, and the existing
+   stop policy showed no regressions.
 
 ### MVP 1-C unresolved-target correction
 
