@@ -11,7 +11,7 @@
     <main id="app" data-state="normal">
       <header class="page-header">
         <div>
-          <p class="eyebrow">New8bitPC / Windows MVP 1-C（命令追加第2段）</p>
+          <p class="eyebrow">New8bitPC / Windows MVP 1-D（INPUT）</p>
           <h1>原文から、理解して、動かす</h1>
           <p class="subtitle">原文はそのまま。解釈と実行は、いつでも作り直せます。</p>
         </div>
@@ -121,7 +121,22 @@
           </div>
         </form>
       </dialog>
-      <footer>1-C：PRINT文字列・GOTO・REM・END・数値変数・式・LET／代入・IF THEN行番号に対応。INPUT・文字列変数などは未対応です。入力・解釈・実行は暫定実装です。</footer>
+      <dialog id="input-dialog" class="stop-dialog" aria-labelledby="input-dialog-title">
+        <form method="dialog">
+          <p class="zone-number">入力待ち</p>
+          <h2 id="input-dialog-title">数値を入力してください</h2>
+          <p id="input-prompt" class="stop-reason" hidden></p>
+          <p>変数 <strong id="input-variable"></strong></p>
+          <label for="input-value">入力値</label>
+          <input id="input-value" type="text" autocomplete="off" spellcheck="false">
+          <p id="input-error" class="stop-reason" role="alert" hidden></p>
+          <div class="button-row stop-dialog-actions">
+            <button id="input-submit-button" type="button">決定</button>
+            <button id="input-cancel-button" type="button" class="stop-button">キャンセル</button>
+          </div>
+        </form>
+      </dialog>
+      <footer>1-D：PRINT文字列・GOTO・REM・END・数値変数・式・LET／代入・IF THEN行番号・単一数値INPUTに対応。文字列変数・複数入力などは未対応です。入力・解釈・実行は暫定実装です。</footer>
     </main>
   </body>
 </html>

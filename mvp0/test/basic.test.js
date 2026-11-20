@@ -4,6 +4,7 @@ import {
   advanceExecution,
   analyzeProgram,
   createExecutionState,
+  parseInputNumber,
   RowStatus
 } from "../src/basic.js";
 import {
@@ -218,6 +219,62 @@ test("IF runtime errors stop on undefined variables and division by zero", () =>
   assert.equal(result.state.done, true);
 });
 
+test("INPUT waits for a numeric value and resumes after one decision", () => {
+  const analysis = analyzeProgram('10 INPUT A\n20 PRINT "OK"\n30 END');
+  assert.deepEqual(analysis.rows.map(row => row.status), [
+    RowStatus.understood,
+    RowStatus.understood,
+    RowStatus.understood
+  ]);
+
+  const waiting = advanceExecution(analysis, createExecutionState());
+  assert.equal(waiting.event.type, "input-wait");
+  assert.equal(waiting.event.variable, "A");
+  assert.equal(waiting.event.prompt, null);
+  assert.equal(waiting.state.position, 1);
+  assert.equal(waiting.state.steps, 1);
+  assert.deepEqual(waiting.state.variables, {});
+
+  const variables = { ...(waiting.state.variables), A: 123 };
+  const resumed = advanceExecution(analysis, { ...waiting.state, variables });
+  assert.equal(resumed.event.type, "print");
+  assert.equal(resumed.event.value, "OK");
+  assert.equal(resumed.state.variables.A, 123);
+});
+
+test("prompted INPUT preserves the prompt and target variable", () => {
+  const analysis = analyzeProgram('10 INPUT "予想";A\n20 END');
+  assert.equal(analysis.rows[0].status, RowStatus.understood);
+  const waiting = advanceExecution(analysis, createExecutionState());
+  assert.equal(waiting.event.type, "input-wait");
+  assert.equal(waiting.event.variable, "A");
+  assert.equal(waiting.event.prompt, "予想");
+});
+
+test("unsupported INPUT forms remain uninterpreted", () => {
+  const analysis = analyzeProgram(
+    '10 INPUT A$\n20 INPUT A,B\n30 INPUT #1,A\n40 LINE INPUT A'
+  );
+  assert.deepEqual(analysis.rows.map(row => row.status), [
+    RowStatus.uninterpreted,
+    RowStatus.uninterpreted,
+    RowStatus.uninterpreted,
+    RowStatus.uninterpreted
+  ]);
+});
+
+test("INPUT numeric validation accepts decimal and negative values only", () => {
+  assert.equal(parseInputNumber("123"), 123);
+  assert.equal(parseInputNumber("-5"), -5);
+  assert.equal(parseInputNumber("1.5"), 1.5);
+  assert.equal(parseInputNumber(""), null);
+  assert.equal(parseInputNumber("ABC"), null);
+  assert.equal(parseInputNumber("12A"), null);
+  assert.equal(parseInputNumber("Infinity"), null);
+  assert.equal(parseInputNumber("1e3"), null);
+  assert.equal(parseInputNumber("１．５"), null);
+});
+
 test("unsupported IF THEN forms remain uninterpreted", () => {
   const raw =
     '10 IF A=1 THEN PRINT "OK"\n' +
@@ -332,7 +389,7 @@ test("expression support does not reinterpret PRINT or out-of-scope commands", (
   assert.deepEqual(analysis.rows.map(row => row.status), [
     RowStatus.understood,
     RowStatus.uninterpreted,
-    RowStatus.uninterpreted,
+    RowStatus.understood,
     RowStatus.uninterpreted
   ]);
 });

@@ -1,3 +1,4 @@
+import { parseInputNumber } from "../src/basic.js";
 import {
   commitPage,
   completeProgram,
@@ -51,6 +52,11 @@ const stopReason = document.querySelector("#stop-reason");
 const stopLocations = document.querySelector("#stop-locations");
 const suppressChoice = document.querySelector("#suppress-choice");
 const suppressForRun = document.querySelector("#suppress-for-run");
+const inputDialog = document.querySelector("#input-dialog");
+const inputPrompt = document.querySelector("#input-prompt");
+const inputVariable = document.querySelector("#input-variable");
+const inputValue = document.querySelector("#input-value");
+const inputError = document.querySelector("#input-error");
 
 let session = createProgramSession(sample);
 let editingKey = null;
@@ -297,6 +303,8 @@ function createLogEntry(event) {
       event.type === "goto" ? `GOTO ${event.targetLine}` :
       event.type === "rem" ? "REM（no-op）" :
       event.type === "assign" ? `代入 ${event.variable} = ${event.value}` :
+      event.type === "input-wait" ? `INPUT待機（変数 ${event.variable}）` :
+      event.type === "input-complete" ? `入力 ${event.variable} = ${event.value}` :
       event.type === "if" ? `IF評価 → ${event.result ? "真" : "偽"} → ${event.result ? `行${event.targetLine}へジャンプ` : "次行へ進む"}` :
       event.type === "runtime-error" ? "実行エラー" :
       "END"
@@ -347,6 +355,17 @@ function showStopCandidate(reason) {
     }
   }
   if (!stopDialog.open) stopDialog.showModal();
+}
+
+function showInputWait(data) {
+  inputPrompt.textContent = data.prompt ?? "";
+  inputPrompt.hidden = data.prompt === null || data.prompt === "";
+  inputVariable.textContent = data.variable;
+  inputValue.value = "";
+  inputError.hidden = true;
+  inputError.textContent = "";
+  if (!inputDialog.open) inputDialog.showModal();
+  inputValue.focus();
 }
 
 function resolveStopDecision(decision) {
@@ -429,6 +448,24 @@ document.querySelector("#continue-execution-button").addEventListener("click", (
 document.querySelector("#stop-execution-button").addEventListener("click", () => {
   resolveStopDecision("stop");
 });
+document.querySelector("#input-submit-button").addEventListener("click", () => {
+  const value = parseInputNumber(inputValue.value);
+  if (value === null) {
+    inputError.hidden = false;
+    inputError.textContent = "数値を入力してください";
+    inputValue.select();
+    return;
+  }
+  worker.postMessage({ type: "resolve-input", text: inputValue.value });
+  inputDialog.close();
+});
+document.querySelector("#input-cancel-button").addEventListener("click", () => {
+  worker.postMessage({ type: "cancel-input" });
+  inputDialog.close();
+});
+inputDialog.addEventListener("cancel", event => {
+  event.preventDefault();
+});
 stopDialog.addEventListener("cancel", event => event.preventDefault());
 document.querySelector("#clear-output-button").addEventListener("click", () => {
   executionLog.replaceChildren();
@@ -443,6 +480,20 @@ worker.addEventListener("message", ({ data }) => {
   }
   if (data.type === "stop-candidate") {
     showStopCandidate(data.reason);
+    return;
+  }
+  if (data.type === "input-wait") {
+    showInputWait(data);
+    return;
+  }
+  if (data.type === "input-invalid") {
+    inputError.hidden = false;
+    inputError.textContent = "数値を入力してください";
+    inputValue.select();
+    return;
+  }
+  if (data.type === "input-complete") {
+    addLogEntries([data.event]);
     return;
   }
   if (data.type === "events") {
@@ -462,9 +513,11 @@ worker.addEventListener("message", ({ data }) => {
     stepCount.textContent = String(data.steps);
     executionStatus.textContent = data.reason === "runtime-error"
       ? `実行エラーで停止しました（累計ステップ${data.steps}）。`
-      : data.type === "stopped"
-        ? `停止しました（累計ステップ${data.steps}）。`
-        : `実行が終了しました（累計ステップ${data.steps}）。`;
+      : data.reason === "input-cancel"
+        ? `入力キャンセルで停止しました（累計ステップ${data.steps}）。`
+        : data.type === "stopped"
+          ? `停止しました（累計ステップ${data.steps}）。`
+          : `実行が終了しました（累計ステップ${data.steps}）。`;
     if (stopDialog.open) stopDialog.close();
     pendingStopReason = null;
     updateSuppressionStatus();

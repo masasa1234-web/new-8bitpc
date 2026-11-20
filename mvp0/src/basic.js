@@ -198,6 +198,37 @@ function parseAssignment(text) {
   };
 }
 
+export function parseInputNumber(text) {
+  if (!/^[-]?(?:\d+(?:\.\d+)?)$/.test(text.trim())) return null;
+  const value = Number(text.trim());
+  return Number.isFinite(value) ? value : null;
+}
+
+function parseInputStatement(text) {
+  const promptMatch = /^INPUT\s+"([^"]*)"\s*;\s*([A-Za-z][A-Za-z0-9]*)\s*$/i.exec(text.trim());
+  if (promptMatch) {
+    return {
+      status: RowStatus.understood,
+      instruction: { type: "input", variable: promptMatch[2].toUpperCase(), prompt: promptMatch[1] }
+    };
+  }
+  const simpleMatch = /^INPUT\s+([A-Za-z][A-Za-z0-9]*)\s*$/i.exec(text.trim());
+  if (simpleMatch) {
+    return {
+      status: RowStatus.understood,
+      instruction: { type: "input", variable: simpleMatch[1].toUpperCase(), prompt: null }
+    };
+  }
+  if (/^INPUT\b/i.test(text.trim())) {
+    return {
+      status: RowStatus.uninterpreted,
+      reason: "INPUTは単一の数値変数または「プロンプト」形式のみ対応しています。",
+      instruction: null
+    };
+  }
+  return null;
+}
+
 function parseIfStatement(text) {
   const match = /^IF\s+(.+?)\s+THEN\s+(\d+)\s*$/i.exec(text.trim());
   if (!match) {
@@ -253,6 +284,8 @@ function parseStatement(text) {
   }
   const bareAssignment = parseAssignment(text);
   if (bareAssignment) return bareAssignment;
+  const inputStatement = parseInputStatement(text);
+  if (inputStatement) return inputStatement;
   const ifStatement = parseIfStatement(text);
   if (ifStatement) return ifStatement;
 
@@ -552,6 +585,14 @@ export function advanceExecution(analysis, state) {
         step: steps
       };
     }
+  } else if (row.instruction.type === "input") {
+    event = {
+      type: "input-wait",
+      row,
+      variable: row.instruction.variable,
+      prompt: row.instruction.prompt,
+      step: steps
+    };
   } else if (row.instruction.type === "if") {
     const variables = { ...(state.variables ?? {}) };
     const evaluated = evaluateExpression(row.instruction.expression, variables);
