@@ -275,6 +275,67 @@ test("INPUT numeric validation accepts decimal and negative values only", () => 
   assert.equal(parseInputNumber("１．５"), null);
 });
 
+test("the same INPUT attempts produce the same execution trace on rerun", () => {
+  const analysis = analyzeProgram(
+    "10 INPUT A\n20 INPUT B\n30 INPUT C\n40 LET D=A*B+C\n50 END"
+  );
+  const attempts = [["5"], ["7"], ["bad", "9"]];
+
+  const execute = () => {
+    let state = createExecutionState();
+    let inputIndex = 0;
+    const trace = [];
+
+    while (!state.done) {
+      const result = advanceExecution(analysis, state);
+      state = result.state;
+      if (!result.event) break;
+      if (result.event.type !== "input-wait") {
+        trace.push({
+          type: result.event.type,
+          variable: result.event.variable,
+          value: result.event.value,
+          step: result.event.step
+        });
+        continue;
+      }
+
+      trace.push({
+        type: result.event.type,
+        variable: result.event.variable,
+        step: result.event.step
+      });
+      for (const text of attempts[inputIndex++]) {
+        const value = parseInputNumber(text);
+        if (value === null) {
+          trace.push({ type: "input-invalid" });
+          continue;
+        }
+        state = {
+          ...state,
+          variables: { ...state.variables, [result.event.variable]: value }
+        };
+        trace.push({
+          type: "input-complete",
+          variable: result.event.variable,
+          value,
+          step: result.event.step
+        });
+        break;
+      }
+    }
+
+    return trace;
+  };
+
+  const firstRun = execute();
+  assert.deepEqual(execute(), firstRun);
+  assert.equal(firstRun.filter(event => event.type === "input-invalid").length, 1);
+  assert.ok(firstRun.some(event =>
+    event.type === "assign" && event.variable === "D" && event.value === 44
+  ));
+});
+
 test("unsupported IF THEN forms remain uninterpreted", () => {
   const raw =
     '10 IF A=1 THEN PRINT "OK"\n' +

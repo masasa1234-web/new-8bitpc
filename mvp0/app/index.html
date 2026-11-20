@@ -61,7 +61,7 @@
           <p id="delimiter-notice" class="delimiter-notice" role="status" hidden></p>
           <p id="complete-status" class="inline-status">入力中：参照先は後から追加できます。</p>
           <details class="history-panel">
-            <summary>訂正履歴 <span id="history-count">0</span>件（一時記録）</summary>
+            <summary>訂正履歴 <span id="history-count">0</span>件</summary>
             <ol id="correction-history" class="history-list"></ol>
           </details>
         </section>
@@ -132,7 +132,8 @@
           <p id="input-error" class="stop-reason" role="alert" hidden></p>
           <div class="button-row stop-dialog-actions">
             <button id="input-submit-button" type="button">決定</button>
-            <button id="input-cancel-button" type="button" class="stop-button">キャンセル</button>
+            <button id="input-stop-button" type="button" class="stop-button">停止</button>
+            <button id="input-cancel-button" type="button" class="secondary">キャンセル</button>
           </div>
         </form>
       </dialog>

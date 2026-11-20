@@ -57,6 +57,9 @@ const inputPrompt = document.querySelector("#input-prompt");
 const inputVariable = document.querySelector("#input-variable");
 const inputValue = document.querySelector("#input-value");
 const inputError = document.querySelector("#input-error");
+const inputSubmitButton = document.querySelector("#input-submit-button");
+const inputStopButton = document.querySelector("#input-stop-button");
+const inputCancelButton = document.querySelector("#input-cancel-button");
 
 let session = createProgramSession(sample);
 let editingKey = null;
@@ -364,8 +367,23 @@ function showInputWait(data) {
   inputValue.value = "";
   inputError.hidden = true;
   inputError.textContent = "";
+  setInputDialogBusy(false);
   if (!inputDialog.open) inputDialog.showModal();
   inputValue.focus();
+}
+
+function setInputDialogBusy(busy) {
+  inputValue.disabled = busy;
+  inputSubmitButton.disabled = busy;
+  inputStopButton.disabled = busy;
+  inputCancelButton.disabled = busy;
+}
+
+function requestExecutionStop() {
+  executionStatus.textContent = "停止要求受付中です。命令の切れ目で停止します。";
+  stopButton.disabled = true;
+  setInputDialogBusy(true);
+  worker.postMessage({ type: "stop" });
 }
 
 function resolveStopDecision(decision) {
@@ -438,17 +456,16 @@ runButton.addEventListener("click", () => {
 });
 
 stopButton.addEventListener("click", () => {
-  executionStatus.textContent = "停止要求受付中です。命令の切れ目で停止します。";
-  stopButton.disabled = true;
-  worker.postMessage({ type: "stop" });
+  requestExecutionStop();
 });
+inputStopButton.addEventListener("click", requestExecutionStop);
 document.querySelector("#continue-execution-button").addEventListener("click", () => {
   resolveStopDecision("continue");
 });
 document.querySelector("#stop-execution-button").addEventListener("click", () => {
   resolveStopDecision("stop");
 });
-document.querySelector("#input-submit-button").addEventListener("click", () => {
+inputSubmitButton.addEventListener("click", () => {
   const value = parseInputNumber(inputValue.value);
   if (value === null) {
     inputError.hidden = false;
@@ -459,7 +476,7 @@ document.querySelector("#input-submit-button").addEventListener("click", () => {
   worker.postMessage({ type: "resolve-input", text: inputValue.value });
   inputDialog.close();
 });
-document.querySelector("#input-cancel-button").addEventListener("click", () => {
+inputCancelButton.addEventListener("click", () => {
   worker.postMessage({ type: "cancel-input" });
   inputDialog.close();
 });
@@ -511,6 +528,8 @@ worker.addEventListener("message", ({ data }) => {
   }
   if (data.type === "finished" || data.type === "stopped") {
     stepCount.textContent = String(data.steps);
+    if (inputDialog.open) inputDialog.close();
+    setInputDialogBusy(false);
     executionStatus.textContent = data.reason === "runtime-error"
       ? `実行エラーで停止しました（累計ステップ${data.steps}）。`
       : data.reason === "input-cancel"
