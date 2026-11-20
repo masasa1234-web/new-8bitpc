@@ -155,3 +155,10 @@ Confirmed cases:
 - Implemented scope: `IF expression THEN line-number`, true jumps, false continues,
   unresolved targets follow GOTO reference handling, and runtime errors stop
   execution. Unsupported THEN forms remain uninterpreted.
+
+### MVP 1-C unresolved-target correction
+
+Before completion, an unresolved IF target is executed as a skipped
+`参照待ち` row. It does not evaluate or print a false/true jump result and does
+not move to the THEN line by speculation. After completion, the IF row becomes
+an error because the target line does not exist.
