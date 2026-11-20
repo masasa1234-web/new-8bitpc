@@ -11,15 +11,24 @@
     <main id="app" data-state="normal">
       <header class="page-header">
         <div>
-          <p class="eyebrow">New8bitPC / Windows MVP 1-D（INPUT）</p>
-          <h1>原文から、理解して、動かす</h1>
-          <p class="subtitle">原文はそのまま。解釈と実行は、いつでも作り直せます。</p>
+          <p class="eyebrow">MVP 1-D</p>
+          <h1>伝統を、新訳する。</h1>
+          <p class="brand-name">New8bitPC</p>
+          <p class="subtitle">原典を読み解き、現代の技術で遊び直す。</p>
         </div>
         <div class="status-card" aria-live="polite">
           <span class="status-light" aria-hidden="true"></span>
           <span id="overall-status">通常</span>
         </div>
       </header>
+
+      <section class="concept-panel" aria-labelledby="concept-heading">
+        <h2 id="concept-heading">コンセプトの核</h2>
+        <p>伝統を捨てて新しくするのではない。</p>
+        <p>原典を、分かったふりをせずに読み解く。</p>
+        <p>現代の技術で、もう一度動かしてみる。</p>
+        <p>そして、当時にはなかった遊び方を見つける。</p>
+      </section>
 
       <section class="summary" aria-label="解析件数">
         <span>誤り <strong id="error-count">0</strong></span>
@@ -137,7 +146,7 @@
           </div>
         </form>
       </dialog>
-      <footer>1-D：PRINT文字列・GOTO・REM・END・数値変数・式・LET／代入・IF THEN行番号・単一数値INPUTに対応。文字列変数・複数入力などは未対応です。入力・解釈・実行は暫定実装です。</footer>
+      <footer>今できること：文字列PRINT・GOTO・REM・END・数値変数と式による代入・IF THEN行番号・単一数値INPUT。文字列変数・複数入力などは未対応です。入力・解釈・実行は暫定実装です。</footer>
     </main>
   </body>
 </html>

@@ -60,7 +60,18 @@ h1 { margin-bottom: 7px; font-size: clamp(1.35rem, 3vw, 2rem); }
 h2 { margin-bottom: 0; font-size: 1.15rem; }
 .eyebrow, .zone-number { margin-bottom: 5px; color: #84bad1; font-size: .75rem; letter-spacing: .12em; }
 .subtitle, .zone-note, .help-text, .inline-status, footer { color: var(--muted); font-size: .86rem; }
+.brand-name { margin-bottom: 4px; color: #cbd6dd; font-size: .9rem; letter-spacing: .08em; }
 .subtitle { margin-bottom: 0; }
+
+.concept-panel {
+  margin: 0 0 18px;
+  padding: 14px 16px;
+  border-left: 3px solid #84bad1;
+  background: #141c23;
+}
+
+.concept-panel h2 { margin-bottom: 9px; color: #b6c6d1; font-size: .88rem; }
+.concept-panel p { margin: 4px 0 0; color: #d3dde3; font-size: .9rem; }
 
 .status-card {
   display: flex;
