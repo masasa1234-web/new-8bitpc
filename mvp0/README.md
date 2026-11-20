@@ -15,10 +15,9 @@ parentheses, `+`, `-`, `*`, `/`, and comparisons (`=`, `<>`, `<`, `<=`, `>`,
 `>=`). Variable names start with an ASCII letter and are case-insensitive.
 Comparison results use `-1` for true and `0` for false. Division by zero and
 references to undefined variables stop that statement with a runtime error.
-Malformed expressions are parse errors. `IF expression THEN line-number`,
-`INPUT`, `FOR...NEXT`,
-`GOSUB...RETURN`, `RND`, `INT`, `CLS`, and `PRINT` expressions remain outside
-this MVP subset.
+Malformed expressions are parse errors. MVP 1-C adds `IF expression THEN
+line-number`. `FOR...NEXT`, `GOSUB...RETURN`, `RND`, `INT`, `CLS`, and `PRINT`
+expressions remain outside this MVP subset.
 
 MVP 1-D supports one numeric variable input in `INPUT A` or
 `INPUT "prompt";A` form. It pauses the worker for a dedicated input dialog,
@@ -79,7 +78,8 @@ after a minimum of 10 steps, or after 500 consecutive steps without `PRINT`
 output. Unresolved references are excluded until **完成**. Choosing **続ける**
 doubles the next check interval, up to 160 steps for skipped rows and 4,000
 steps without output. At the cap, the prompt can be suppressed for that reason
-for the current run only. **停止** remains available while the worker runs.
+for the current run only. **停止** remains available while the worker runs;
+during an INPUT wait, use **停止** in the input dialog.
 
 On **区切り**, a page with at least five rows and a majority of uninterpreted
 rows, or a page where every row is uninterpreted, gets a non-blocking notice.
@@ -111,7 +111,7 @@ node --test
 6. Confirm `10PRINT"A"` and `10GOTO100` are understood while `10PRINTA` is
    uninterpreted. Expand a committed page, edit its Raw, and update it. Confirm
    the page number stays the same, analysis refreshes, the pending next-page
-   text remains, and changed lines appear in temporary correction history.
+   text remains, and changed lines appear in correction history.
 7. Delimit a page with five or more mostly uninterpreted rows and confirm the
    profile caution appears without stopping input. Confirm a page with all rows
    uninterpreted also gets the notice, even when it has fewer than five rows.
@@ -200,7 +200,7 @@ an error because the target line does not exist.
 
 ## MVP 1-D implementation record
 
-- Automated tests: 41 passed
+- Automated tests: 43 passed
 - Browser manual confirmation: confirmed OK
 - Scope: `INPUT A`, `INPUT "prompt";A`, numeric validation, dedicated input
   dialog, cancel, and variable initialization on rerun
@@ -210,7 +210,7 @@ an error because the target line does not exist.
 ### MVP 1-D browser acceptance record
 
 - Date: 2026-11-20
-- Automated tests: 41 passed
+- Automated tests: 43 passed
 - Browser manual confirmation: confirmed OK
 
 1. Accepted integer `42`, negative value `-7`, and decimal `3.14`. The prompted
@@ -239,3 +239,24 @@ The following five rows were not inferred or executed:
 
 Each row was reported as uninterpreted with a reason. The log reached cumulative
 step 5, produced no program output, and ended normally.
+
+### MVP 1-D additional browser acceptance
+
+- Date: 2026-11-20
+- Automated tests: 43 passed
+- Browser manual confirmation: confirmed OK
+
+1. Waiting at `10 INPUT A` for more than five seconds did not trigger the
+   no-change stop. An INPUT/GOTO loop also remained waiting after five inputs.
+   The comparison assignment/GOTO loop reached the stop decision at cumulative
+   step 500.
+2. Pressing **停止** in the input dialog closed it and stopped at step 1. The
+   Run button became available again; rerunning showed exactly one pending
+   input dialog, with no stale wait request.
+3. Ran `10 INPUT A`, `20 INPUT B`, `30 INPUT C`, `40 LET D=A*B+C`, and
+   `50 END`, twice with inputs `5`, `7`, `bad`, `9`. Invalid text kept the
+   dialog open with a numeric validation error. Both runs produced the same
+   input-completion, assignment, and end log, with `D=44` and normal completion
+   at cumulative step 5.
+4. Removed “temporary” from the correction-history label to match its persisted
+   storage behavior.
