@@ -142,6 +142,106 @@ test("END stops execution at its row and does not execute later lines", () => {
   assert.equal(after.state.steps, 2);
 });
 
+test("IF true jumps to THEN line and false continues to the next row", () => {
+  const analysis = analyzeProgram(
+    '10 A=1\n20 IF A=1 THEN 100\n30 PRINT "NG"\n40 END\n100 PRINT "OK"\n110 END'
+  );
+  assert.deepEqual(analysis.rows.map(row => row.status), [
+    RowStatus.understood,
+    RowStatus.understood,
+    RowStatus.understood,
+    RowStatus.understood,
+    RowStatus.understood,
+    RowStatus.understood
+  ]);
+
+  let state = createExecutionState();
+  const trueEvents = [];
+  for (let index = 0; index < 4; index += 1) {
+    const result = advanceExecution(analysis, state);
+    state = result.state;
+    trueEvents.push(result.event);
+  }
+  assert.equal(trueEvents[0].type, "assign");
+  assert.equal(trueEvents[1].type, "if");
+  assert.equal(trueEvents[1].result, true);
+  assert.equal(trueEvents[1].targetLine, 100);
+  assert.equal(trueEvents[2].type, "print");
+  assert.equal(trueEvents[2].value, "OK");
+  assert.equal(trueEvents[3].type, "end");
+
+  const falseAnalysis = analyzeProgram(
+    '10 A=0\n20 IF A=1 THEN 100\n30 PRINT "NEXT"\n100 PRINT "SKIPPED"'
+  );
+  state = createExecutionState();
+  const falseEvents = [];
+  for (let index = 0; index < 4; index += 1) {
+    const result = advanceExecution(falseAnalysis, state);
+    state = result.state;
+    if (result.event) falseEvents.push(result.event);
+  }
+  assert.equal(falseEvents[1].type, "if");
+  assert.equal(falseEvents[1].result, false);
+  assert.equal(falseEvents[1].nextLine, null);
+  assert.equal(falseEvents[2].value, "NEXT");
+});
+
+test("IF unresolved targets wait and become errors on completion", () => {
+  const raw = "10 IF A=1 THEN 999";
+  const waiting = analyzeProgram(raw);
+  assert.equal(waiting.rows[0].status, RowStatus.referenceWaiting);
+
+  const completed = analyzeProgram(raw, { complete: true });
+  assert.equal(completed.rows[0].status, RowStatus.error);
+  assert.match(completed.rows[0].reasons.join(" "), /行番号999がありません/);
+});
+
+test("IF runtime errors stop on undefined variables and division by zero", () => {
+  const undefinedIf = analyzeProgram("10 IF Y=1 THEN 100\n100 END");
+  let result = advanceExecution(undefinedIf, createExecutionState());
+  assert.equal(result.event.type, "runtime-error");
+  assert.match(result.event.reason, /変数Yは未定義/);
+  assert.equal(result.state.done, true);
+
+  const divideByZero = analyzeProgram("10 IF 1/0 THEN 100\n100 END");
+  result = advanceExecution(divideByZero, createExecutionState());
+  assert.equal(result.event.type, "runtime-error");
+  assert.match(result.event.reason, /0で除算/);
+  assert.equal(result.state.done, true);
+});
+
+test("unsupported IF THEN forms remain uninterpreted", () => {
+  const raw =
+    '10 IF A=1 THEN PRINT "OK"\n' +
+    "20 IF A=1 THEN A=A+1\n" +
+    "30 IF A=1 THEN GOTO 100\n" +
+    "40 IF A=1 THEN REM TEST\n" +
+    "50 IF A=1 THEN 100 ELSE 200\n" +
+    '60 IF A$="X" THEN 100\n' +
+    '70 IF A=1 THEN 100:PRINT "X"';
+  const analysis = analyzeProgram(raw);
+  assert.ok(analysis.rows.every(row => row.status === RowStatus.uninterpreted));
+  assert.ok(analysis.rows.every(row => row.reasons.join(" ").includes("IF")));
+});
+
+test("IF does not change GOTO or assignment behavior", () => {
+  const analysis = analyzeProgram(
+    '10 A=2\n20 GOTO 40\n30 A=A+1\n40 IF A=2 THEN 60\n50 PRINT "NO"\n60 PRINT "YES"\n70 END'
+  );
+  let state = createExecutionState();
+  const events = [];
+  for (let index = 0; index < 6; index += 1) {
+    const result = advanceExecution(analysis, state);
+    state = result.state;
+    if (result.event) events.push(result.event);
+  }
+  assert.equal(events.some(event => event.type === "assign"), true);
+  assert.equal(events.some(event => event.type === "goto"), true);
+  assert.equal(events.some(event => event.type === "if"), true);
+  assert.equal(events.some(event => event.type === "print" && event.value === "YES"), true);
+  assert.equal(events.some(event => event.type === "print" && event.value === "NO"), false);
+});
+
 test("LET and bare assignment share arithmetic expression evaluation", () => {
   const analysis = analyzeProgram(
     '10 LET A=-5\n20 b=A*-2\n30 C=(10-3)+(b/2)\n40 D=C>=10'
@@ -219,7 +319,7 @@ test("malformed assignment expressions and LET syntax are errors", () => {
 
 test("expression support does not reinterpret PRINT or out-of-scope commands", () => {
   const analysis = analyzeProgram(
-    '10 PRINT "A+B"\n20 PRINT A+1\n30 IF A=1 THEN 100\n40 INPUT A'
+    '10 PRINT "A+B"\n20 PRINT A+1\n30 INPUT A\n40 FOO'
   );
   assert.deepEqual(analysis.rows.map(row => row.status), [
     RowStatus.understood,

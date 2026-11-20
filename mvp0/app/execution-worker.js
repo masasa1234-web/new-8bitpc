@@ -41,6 +41,12 @@ async function runLoop(thisRun) {
     }
 
     pendingEvents.push(result.event);
+    if (result.event.type === "runtime-error") {
+      flushPendingEvents();
+      active = false;
+      self.postMessage({ type: "stopped", steps: currentSteps, reason: "runtime-error" });
+      return;
+    }
     if (result.event.type === "end") {
       flushPendingEvents();
       active = false;

@@ -297,6 +297,7 @@ function createLogEntry(event) {
       event.type === "goto" ? `GOTO ${event.targetLine}` :
       event.type === "rem" ? "REM（no-op）" :
       event.type === "assign" ? `代入 ${event.variable} = ${event.value}` :
+      event.type === "if" ? `IF評価 → ${event.result ? "真" : "偽"} → ${event.result ? `行${event.targetLine}へジャンプ` : "次行へ進む"}` :
       event.type === "runtime-error" ? "実行エラー" :
       "END"
     }`;
@@ -459,9 +460,11 @@ worker.addEventListener("message", ({ data }) => {
   }
   if (data.type === "finished" || data.type === "stopped") {
     stepCount.textContent = String(data.steps);
-    executionStatus.textContent = data.type === "stopped"
-      ? `停止しました（累計ステップ${data.steps}）。`
-      : `実行が終了しました（累計ステップ${data.steps}）。`;
+    executionStatus.textContent = data.reason === "runtime-error"
+      ? `実行エラーで停止しました（累計ステップ${data.steps}）。`
+      : data.type === "stopped"
+        ? `停止しました（累計ステップ${data.steps}）。`
+        : `実行が終了しました（累計ステップ${data.steps}）。`;
     if (stopDialog.open) stopDialog.close();
     pendingStopReason = null;
     updateSuppressionStatus();

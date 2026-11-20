@@ -198,6 +198,49 @@ function parseAssignment(text) {
   };
 }
 
+function parseIfStatement(text) {
+  const match = /^IF\s+(.+?)\s+THEN\s+(\d+)\s*$/i.exec(text.trim());
+  if (!match) {
+    if (/^IF\b/i.test(text.trim())) {
+      return {
+        status: RowStatus.uninterpreted,
+        reason: "IF命令は「IF 式 THEN 行番号」の形式のみ対応しています。",
+        instruction: null
+      };
+    }
+    return null;
+  }
+
+  const expressionText = match[1].trim();
+  const targetLine = Number(match[2]);
+  const expression = parseExpression(expressionText);
+  if (!expression) {
+    if (expressionText.includes("$") || expressionText.includes(":") || expressionText.includes("ELSE")) {
+      return {
+        status: RowStatus.uninterpreted,
+        reason: "このIF式の構文は0段階では未対応です。",
+        instruction: null
+      };
+    }
+    return {
+      status: RowStatus.error,
+      reason: "IF式の書式が不正です。",
+      instruction: null
+    };
+  }
+  if (!Number.isSafeInteger(targetLine)) {
+    return {
+      status: RowStatus.error,
+      reason: "IFのジャンプ先行番号が安全な整数の範囲外です。",
+      instruction: null
+    };
+  }
+  return {
+    status: RowStatus.understood,
+    instruction: { type: "if", expression, targetLine }
+  };
+}
+
 function parseStatement(text) {
   const letMatch = /^LET(?:\s+(.*))?$/i.exec(text.trim());
   if (letMatch) {
@@ -210,6 +253,8 @@ function parseStatement(text) {
   }
   const bareAssignment = parseAssignment(text);
   if (bareAssignment) return bareAssignment;
+  const ifStatement = parseIfStatement(text);
+  if (ifStatement) return ifStatement;
 
   const commandMatch = /^([A-Za-z]+)/.exec(text.trimStart());
   if (!commandMatch) {
@@ -384,18 +429,20 @@ function analyzePagesInternal(pages, { complete = false } = {}) {
   }
 
   for (const row of rows) {
-    if (row.status !== RowStatus.understood || row.instruction?.type !== "goto") continue;
-    const targets = rowsByNumber.get(row.instruction.targetLine) ?? [];
+    if (row.status !== RowStatus.understood ||
+        !["goto", "if"].includes(row.instruction?.type)) continue;
+    const targetLine = row.instruction.targetLine;
+    const targets = rowsByNumber.get(targetLine) ?? [];
     if (targets.length > 1) {
       row.status = RowStatus.error;
-      row.reasons.push(`ジャンプ先の行番号${row.instruction.targetLine}が重複しているため、参照先を特定できません。`);
+      row.reasons.push(`ジャンプ先の行番号${targetLine}が重複しているため、参照先を特定できません。`);
     } else if (targets.length === 0) {
       if (complete) {
         row.status = RowStatus.error;
-        row.reasons.push(`ジャンプ先の行番号${row.instruction.targetLine}がありません。`);
+        row.reasons.push(`ジャンプ先の行番号${targetLine}がありません。`);
       } else {
         row.status = RowStatus.referenceWaiting;
-        row.reasons.push(`ジャンプ先の行番号${row.instruction.targetLine}を待っています。`);
+        row.reasons.push(`ジャンプ先の行番号${targetLine}を待っています。`);
       }
     } else {
       row.jumpTargetSourceLine = targets[0].sourceLine;
@@ -407,7 +454,10 @@ function analyzePagesInternal(pages, { complete = false } = {}) {
     .toSorted((left, right) => left.lineNumber - right.lineNumber || left.sourceLine - right.sourceLine)
     .map(row => ({ ...row }));
   const executable = timeline
-    .filter(row => row.status === RowStatus.understood)
+    .filter(row =>
+      row.status === RowStatus.understood ||
+      (row.status === RowStatus.referenceWaiting && row.instruction?.type === "if")
+    )
     .map(row => ({
       sourceLine: row.sourceLine,
       lineNumber: row.lineNumber,
@@ -470,7 +520,8 @@ export function advanceExecution(analysis, state) {
   let event;
   let done = false;
 
-  if (row.status !== RowStatus.understood) {
+  if (row.status !== RowStatus.understood &&
+      !(row.status === RowStatus.referenceWaiting && row.instruction?.type === "if")) {
     const label = row.duplicate
       ? "重複のため実行対象外"
       : `${row.status}：${row.reasons.join(" ")}`;
@@ -486,6 +537,7 @@ export function advanceExecution(analysis, state) {
     const variables = { ...(state.variables ?? {}) };
     const evaluated = evaluateExpression(row.instruction.expression, variables);
     if (!evaluated.ok) {
+      done = true;
       event = {
         type: "runtime-error",
         row,
@@ -502,6 +554,34 @@ export function advanceExecution(analysis, state) {
         value: evaluated.value,
         step: steps
       };
+    }
+  } else if (row.instruction.type === "if") {
+    const variables = { ...(state.variables ?? {}) };
+    const evaluated = evaluateExpression(row.instruction.expression, variables);
+    if (!evaluated.ok) {
+      done = true;
+      event = {
+        type: "runtime-error",
+        row,
+        reason: evaluated.error,
+        step: steps
+      };
+    } else {
+      const result = evaluated.value !== 0;
+      event = {
+        type: "if",
+        row,
+        result,
+        targetLine: row.instruction.targetLine,
+        nextLine: result ? row.instruction.targetLine : null,
+        step: steps
+      };
+      if (result) {
+        const targetPosition = analysis.timeline.findIndex(
+          target => target.sourceLine === row.jumpTargetSourceLine
+        );
+        if (targetPosition !== -1) position = targetPosition;
+      }
     }
   } else if (row.instruction.type === "goto") {
     event = {
