@@ -201,11 +201,27 @@ an error because the target line does not exist.
 ## MVP 1-D implementation record
 
 - Automated tests: 41 passed
-- Unsupported INPUT browser check: confirmed OK
+- Browser manual confirmation: confirmed OK
 - Scope: `INPUT A`, `INPUT "prompt";A`, numeric validation, dedicated input
   dialog, cancel, and variable initialization on rerun
 - Excluded: string variables, multiple inputs, multiple prompts, file input,
   `LINE INPUT`, exponent notation, and full-width symbols
+
+### MVP 1-D browser acceptance record
+
+- Date: 2026-11-20
+- Automated tests: 41 passed
+- Browser manual confirmation: confirmed OK
+
+1. Accepted integer `42`, negative value `-7`, and decimal `3.14`. The prompted
+   input displayed `予想` and its target variable; all four inputs reached END.
+2. Rejected `abc` while keeping the dialog open with a validation message, then
+   accepted `7` on retry and finished normally.
+3. Cancelled while waiting for input; execution stopped at step 1 with no input
+   completion event or variable update.
+4. The first run set `A=99`. On rerun, a branch skipped that assignment and
+   referencing `A` produced the expected undefined-variable runtime error,
+   confirming that variables are initialized for each run.
 
 ### MVP 1-D unsupported INPUT browser confirmation
 
