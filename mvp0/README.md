@@ -1,4 +1,4 @@
-# New8bitPC Windows MVP 1-A / 1-B / 1-C
+# New8bitPC Windows MVP 1-A / 1-B / 1-C / 1-D
 
 This isolated prototype keeps each entered page's source text unchanged and
 derives line analysis and executable statements from committed pages. It
@@ -19,6 +19,14 @@ Malformed expressions are parse errors. `IF expression THEN line-number`,
 `INPUT`, `FOR...NEXT`,
 `GOSUB...RETURN`, `RND`, `INT`, `CLS`, and `PRINT` expressions remain outside
 this MVP subset.
+
+MVP 1-D supports one numeric variable input in `INPUT A` or
+`INPUT "prompt";A` form. It pauses the worker for a dedicated input dialog,
+stores a validated decimal or negative integer/decimal value, then resumes at
+the next command. Invalid text keeps the dialog open without changing variables.
+Cancel stops execution without changing the variable. Exponential notation,
+full-width symbols, string variables, multiple inputs, and file input remain
+uninterpreted.
 
 ## Run
 
@@ -118,6 +126,9 @@ node --test
     `100 PRINT "OK"`, and `110 END`. Confirm a true IF jumps to line 100 and false
     IF continues to the next row. Confirm unresolved targets wait before completion
     and become errors after completion.
+11. Run string-variable, multiple-input, multiple-prompt, file-input, and
+    `LINE INPUT` samples. Confirm that all unsupported forms remain uninterpreted,
+    are logged with reasons, and do not execute or infer values.
 
 ## MVP 1-B browser acceptance record
 
@@ -186,3 +197,29 @@ Before completion, an unresolved IF target is executed as a skipped
 `参照待ち` row. It does not evaluate or print a false/true jump result and does
 not move to the THEN line by speculation. After completion, the IF row becomes
 an error because the target line does not exist.
+
+## MVP 1-D implementation record
+
+- Automated tests: 41 passed
+- Unsupported INPUT browser check: confirmed OK
+- Scope: `INPUT A`, `INPUT "prompt";A`, numeric validation, dedicated input
+  dialog, cancel, and variable initialization on rerun
+- Excluded: string variables, multiple inputs, multiple prompts, file input,
+  `LINE INPUT`, exponent notation, and full-width symbols
+
+### MVP 1-D unsupported INPUT browser confirmation
+
+- Date: 2026-11-20
+
+The following five rows were not inferred or executed:
+
+```basic
+10 INPUT A$
+20 INPUT A,B
+30 INPUT "A";A,"B";B
+40 INPUT #1,A
+50 LINE INPUT A
+```
+
+Each row was reported as uninterpreted with a reason. The log reached cumulative
+step 5, produced no program output, and ended normally.
