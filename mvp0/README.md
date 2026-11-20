@@ -42,6 +42,15 @@ boundaries. Press **完成** to commit any remaining input and turn unresolved
 jump targets into errors. Typing or correcting source returns analysis to the
 incomplete state.
 
+## UI copy
+
+The page now presents the approved brand copy and a separate “concept core”
+section, distinct from the current feature summary. The MVP stage label appears
+once in the page header. Supported statements are not generated from parser
+logic: the parser has no shared capability metadata, so extracting a list from
+its implementation would duplicate the manually maintained feature summary
+without reliably keeping the two in sync.
+
 Committed source pages are shown separately and are not rewritten by analysis
 or execution. Expand a committed page and choose **このRawを編集** to load it
 into the editor. **このページを更新して再解析** replaces that same page,
