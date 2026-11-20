@@ -1,13 +1,23 @@
-# New8bitPC Windows MVP 1-A
+# New8bitPC Windows MVP 1-A / 1-B
 
 This isolated prototype keeps each entered page's source text unchanged and
 derives line analysis and executable statements from committed pages. It
 supports string-literal `PRINT`, numeric-line `GOTO`, `REM` as a no-op, and
-`END` to stop execution. Other commands are reported as uninterpreted and
+`END` to stop execution. Numeric variables and expressions can be assigned with
+`LET A=expression` or `A=expression`. Other commands are reported as uninterpreted and
 skipped. It is not a full N88-BASIC emulator.
 Compact forms such as `10PRINT"A"` and `10GOTO100` are accepted when the
 command/argument boundary is clear. Ambiguous forms such as `10PRINTA` remain
 uninterpreted. These are MVP input rules, not claims about N88-BASIC hardware.
+
+The MVP 1-B expression subset supports numeric literals, unary minus,
+parentheses, `+`, `-`, `*`, `/`, and comparisons (`=`, `<>`, `<`, `<=`, `>`,
+`>=`). Variable names start with an ASCII letter and are case-insensitive.
+Comparison results use `-1` for true and `0` for false. Division by zero and
+references to undefined variables stop that statement with a runtime error.
+Malformed expressions are parse errors. `IF`, `INPUT`, `FOR...NEXT`,
+`GOSUB...RETURN`, `RND`, `INT`, `CLS`, and `PRINT` expressions remain outside
+this MVP subset.
 
 ## Run
 
@@ -100,3 +110,23 @@ node --test
    comment is preserved, logged as a no-op step, and does not suppress `HELLO`.
    Run `10 PRINT "BEFORE"`, `20 END`, and `30 PRINT "AFTER"` and confirm only
    `BEFORE` is output and execution finishes at `END`.
+9. Run `LET A=-5`, `B=(A*-2)+(10-3)`, and `C=B>=10` and confirm the variable
+   values are `-5`, `17`, and `-1`. Confirm `LET D=B/0` and `LET E=UNKNOWN+1`
+   are reported as runtime errors and do not change the variable table.
+
+## MVP 1-B browser acceptance record
+
+- Date: 2026-11-20
+- Commit: `2fda42d`
+- Automated tests: 32 passed
+- Browser status: confirmed OK
+
+Confirmed cases:
+
+1. `10 LET A=1`, `20 LET A=A+1`, `30 GOTO 20` stopped normally at the cumulative
+   500-step safeguard and reported the latest assignment `A = 251`.
+2. Unary minus, parentheses, arithmetic, fraction division, comparisons, mixed
+   case variable names, existing `PRINT`, and `END` produced `A=-5`, `B=-10`,
+   `C=0.5`, `D=-1`, `E=0`, output `OK`, and cumulative 7 steps for normal exit.
+3. `10 LET X=Y+1` was parsed as understood and stopped at step 1 with
+   `変数Yは未定義です。`.
