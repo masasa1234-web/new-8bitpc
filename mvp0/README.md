@@ -1,4 +1,4 @@
-# New8bitPC Windows MVP 1-A / 1-B
+# New8bitPC Windows MVP 1-A / 1-B / 1-C
 
 This isolated prototype keeps each entered page's source text unchanged and
 derives line analysis and executable statements from committed pages. It
@@ -15,7 +15,8 @@ parentheses, `+`, `-`, `*`, `/`, and comparisons (`=`, `<>`, `<`, `<=`, `>`,
 `>=`). Variable names start with an ASCII letter and are case-insensitive.
 Comparison results use `-1` for true and `0` for false. Division by zero and
 references to undefined variables stop that statement with a runtime error.
-Malformed expressions are parse errors. `IF`, `INPUT`, `FOR...NEXT`,
+Malformed expressions are parse errors. `IF expression THEN line-number`,
+`INPUT`, `FOR...NEXT`,
 `GOSUB...RETURN`, `RND`, `INT`, `CLS`, and `PRINT` expressions remain outside
 this MVP subset.
 
@@ -113,6 +114,10 @@ node --test
 9. Run `LET A=-5`, `B=(A*-2)+(10-3)`, and `C=B>=10` and confirm the variable
    values are `-5`, `17`, and `-1`. Confirm `LET D=B/0` and `LET E=UNKNOWN+1`
    are reported as runtime errors and do not change the variable table.
+10. Run `10 A=1`, `20 IF A=1 THEN 100`, `30 PRINT "NG"`, `40 END`,
+    `100 PRINT "OK"`, and `110 END`. Confirm a true IF jumps to line 100 and false
+    IF continues to the next row. Confirm unresolved targets wait before completion
+    and become errors after completion.
 
 ## MVP 1-B browser acceptance record
 
@@ -141,3 +146,12 @@ Confirmed cases:
 
 - Implementation commit: `2fda42d`
 - Documentation commit: `c6c6195`
+
+## MVP 1-C implementation record
+
+- Implementation commit: `acd68d8`
+- Automated tests: 37 passed
+- Browser manual confirmation: pending
+- Implemented scope: `IF expression THEN line-number`, true jumps, false continues,
+  unresolved targets follow GOTO reference handling, and runtime errors stop
+  execution. Unsupported THEN forms remain uninterpreted.
