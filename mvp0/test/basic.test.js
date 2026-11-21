@@ -563,6 +563,166 @@ test("expression operators follow arithmetic and comparison rules", () => {
   assert.deepEqual(values, { A: 7, B: 9, C: 2.5, D: 0, E: -1 });
 });
 
+test("INT floors positive and negative values and composes with expressions", () => {
+  const analysis = analyzeProgram(
+    "10 A=INT(2.8)\n" +
+    "20 B=INT(2.0)\n" +
+    "30 C=INT(-2.8)\n" +
+    "40 D=INT(-2.0)\n" +
+    "50 E=INT(-0.2)\n" +
+    "60 F=INT(0.2)\n" +
+    "70 G=INT(1+2*3)\n" +
+    "80 H=10\n" +
+    "90 I=INT((H+10)/2)\n" +
+    "100 J=(INT(H)+1)*2\n" +
+    "110 K=INT(INT(2.8)+0.5)\n" +
+    "120 L=INT(-2.8)\n" +
+    "130 M=-(INT(2.8))"
+  );
+  assert.ok(analysis.rows.every(row => row.status === RowStatus.understood));
+
+  let state = createExecutionState();
+  const values = {};
+  while (state.position < analysis.executable.length) {
+    const result = advanceExecution(analysis, state);
+    state = result.state;
+    values[result.event.variable] = result.event.value;
+  }
+
+  assert.deepEqual(values, {
+    A: 2,
+    B: 2,
+    C: -3,
+    D: -2,
+    E: -1,
+    F: 0,
+    G: 7,
+    H: 10,
+    I: 10,
+    J: 22,
+    K: 2,
+    L: -3,
+    M: -2
+  });
+  assert.equal(state.steps, 13);
+});
+
+test("INT is available in IF conditions without adding execution steps", () => {
+  const analysis = analyzeProgram(
+    '10 A=5\n' +
+    '20 IF INT(A)=5 THEN PRINT "INT IF"\n' +
+    '30 X=4\n' +
+    '40 IF INT(X/2)>0 THEN PRINT "DIV IF"\n' +
+    '50 END'
+  );
+  assert.ok(analysis.rows.every(row => row.status === RowStatus.understood));
+
+  let state = createExecutionState();
+  const events = [];
+  while (!state.done) {
+    const result = advanceExecution(analysis, state);
+    state = result.state;
+    if (result.event) events.push(result.event);
+  }
+
+  assert.deepEqual(
+    events.map(event => [event.type, event.row.lineNumber, event.step]),
+    [
+      ["assign", 10, 1],
+      ["print", 20, 2],
+      ["assign", 30, 3],
+      ["print", 40, 4],
+      ["end", 50, 5]
+    ]
+  );
+  assert.deepEqual(
+    events.filter(event => event.type === "print").map(event => event.value),
+    ["INT IF", "DIV IF"]
+  );
+  assert.ok(events.filter(event => event.type === "print").every(event => event.conditional));
+});
+
+test("invalid INT calls are errors and unknown functions keep whole rows uninterpreted", () => {
+  const analysis = analyzeProgram(
+    '10 A=1\n' +
+    '20 B=INT()\n' +
+    '30 C=INT(1,2)\n' +
+    '40 D=INT(1+)\n' +
+    '50 E=INT((1+2)\n' +
+    '60 F=INT(1+2))\n' +
+    '70 G=RND(1)\n' +
+    '80 H=INT(RND(1))\n' +
+    '90 I=1+RND(1)\n' +
+    '100 IF RND(1)>0 THEN 200\n' +
+    '110 PRINT "AFTER"\n' +
+    '120 END'
+  );
+  assert.deepEqual(analysis.rows.map(row => row.status), [
+    RowStatus.understood,
+    RowStatus.error,
+    RowStatus.error,
+    RowStatus.error,
+    RowStatus.error,
+    RowStatus.error,
+    RowStatus.uninterpreted,
+    RowStatus.uninterpreted,
+    RowStatus.uninterpreted,
+    RowStatus.uninterpreted,
+    RowStatus.understood,
+    RowStatus.understood
+  ]);
+  assert.deepEqual(analysis.executable.map(row => row.lineNumber), [10, 110, 120]);
+  assert.ok(analysis.rows.slice(1, 6).every(row => row.instruction === null));
+  assert.ok(analysis.rows.slice(6, 10).every(row => row.instruction === null));
+
+  let state = createExecutionState();
+  const events = [];
+  while (!state.done) {
+    const result = advanceExecution(analysis, state);
+    state = result.state;
+    if (result.event) events.push(result.event);
+  }
+
+  assert.deepEqual(state.variables, { A: 1 });
+  assert.deepEqual(
+    events.filter(event => event.type === "print").map(event => event.value),
+    ["AFTER"]
+  );
+  assert.ok(events.filter(event => event.type === "skipped").every(event =>
+    [20, 30, 40, 50, 60, 70, 80, 90, 100].includes(event.row.lineNumber)
+  ));
+});
+
+test("INT preserves runtime errors and expressions are limited to depth 64", () => {
+  const undefinedVariable = analyzeProgram("10 A=INT(B)");
+  assert.equal(undefinedVariable.rows[0].status, RowStatus.understood);
+  let result = advanceExecution(undefinedVariable, createExecutionState());
+  assert.equal(result.event.type, "runtime-error");
+  assert.match(result.event.reason, /変数Bは未定義/);
+
+  const divideByZero = analyzeProgram("10 A=INT(1/0)");
+  result = advanceExecution(divideByZero, createExecutionState());
+  assert.equal(result.event.type, "runtime-error");
+  assert.match(result.event.reason, /0で除算/);
+
+  const depth64 = `${"INT(".repeat(64)}1${")".repeat(64)}`;
+  const depth65 = `${"INT(".repeat(65)}1${")".repeat(65)}`;
+  const chain64 = `${"1+".repeat(64)}1`;
+  const chain65 = `${"1+".repeat(65)}1`;
+  const depthAnalysis = analyzeProgram(
+    `10 A=${depth64}\n20 B=${depth65}\n30 C=${chain64}\n40 D=${chain65}`
+  );
+  assert.deepEqual(depthAnalysis.rows.map(row => row.status), [
+    RowStatus.understood,
+    RowStatus.error,
+    RowStatus.understood,
+    RowStatus.error
+  ]);
+  result = advanceExecution(depthAnalysis, createExecutionState());
+  assert.equal(result.event.type, "assign");
+  assert.equal(result.event.value, 1);
+});
+
 test("undefined variables and division by zero are runtime errors", () => {
   const undefinedVariable = analyzeProgram("10 LET A=B+1");
   let state = createExecutionState();

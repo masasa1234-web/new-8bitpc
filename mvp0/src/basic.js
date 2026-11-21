@@ -5,19 +5,36 @@ export const RowStatus = Object.freeze({
   referenceWaiting: "参照待ち"
 });
 
+const MAX_EXPRESSION_DEPTH = 64;
+
 class ExpressionParser {
   constructor(text) {
     this.text = text;
     this.tokens = tokenizeExpression(text);
     this.position = 0;
+    this.recursionDepth = 0;
+    this.hasUnsupportedFunction = false;
   }
 
   parse() {
-    if (!this.tokens) return null;
-    if (this.tokens.length === 0) return null;
+    if (!this.tokens || this.tokens.length === 0) return { status: "error" };
     const expression = this.parseComparison();
-    if (!expression || this.position !== this.tokens.length) return null;
-    return expression;
+    if (!expression || this.position !== this.tokens.length ||
+        !isExpressionWithinDepth(expression)) return { status: "error" };
+    return {
+      status: this.hasUnsupportedFunction ? "uninterpreted" : "understood",
+      expression
+    };
+  }
+
+  withRecursionDepth(parser) {
+    if (this.recursionDepth >= MAX_EXPRESSION_DEPTH) return null;
+    this.recursionDepth += 1;
+    try {
+      return parser();
+    } finally {
+      this.recursionDepth -= 1;
+    }
   }
 
   parseComparison() {
@@ -65,7 +82,7 @@ class ExpressionParser {
   parseUnary() {
     if (this.position < this.tokens.length && this.tokens[this.position].value === "-") {
       this.position += 1;
-      const operand = this.parseUnary();
+      const operand = this.withRecursionDepth(() => this.parseUnary());
       if (!operand) return null;
       return { type: "unary-minus", operand };
     }
@@ -80,10 +97,15 @@ class ExpressionParser {
       return { type: "number", value: token.value };
     }
     if (token.type === "identifier") {
+      const name = token.value.toUpperCase();
+      if (this.tokens[this.position]?.value === "(") {
+        this.position += 1;
+        return this.withRecursionDepth(() => this.parseFunction(name));
+      }
       return { type: "variable", name: token.value.toUpperCase() };
     }
     if (token.value === "(") {
-      const expression = this.parseComparison();
+      const expression = this.withRecursionDepth(() => this.parseComparison());
       if (!expression) return null;
       if (this.position >= this.tokens.length || this.tokens[this.position].value !== ")") return null;
       this.position += 1;
@@ -92,6 +114,49 @@ class ExpressionParser {
     this.position -= 1;
     return null;
   }
+
+  parseFunction(name) {
+    if (name !== "INT") {
+      let depth = 1;
+      while (this.position < this.tokens.length) {
+        const token = this.tokens[this.position];
+        this.position += 1;
+        if (token.value === "(") {
+          depth += 1;
+          if (depth > MAX_EXPRESSION_DEPTH) return null;
+        } else if (token.value === ")") {
+          depth -= 1;
+          if (depth === 0) {
+            this.hasUnsupportedFunction = true;
+            return { type: "unsupported-function" };
+          }
+        }
+      }
+      return null;
+    }
+
+    const argument = this.parseComparison();
+    if (!argument || this.position >= this.tokens.length ||
+        this.tokens[this.position].value !== ")") return null;
+    this.position += 1;
+    return { type: "function", name, argument };
+  }
+}
+
+function isExpressionWithinDepth(expression) {
+  const pending = [[expression, 0]];
+  while (pending.length > 0) {
+    const [current, depth] = pending.pop();
+    if (depth > MAX_EXPRESSION_DEPTH) return false;
+    if (current.type === "unary-minus") {
+      pending.push([current.operand, depth + 1]);
+    } else if (current.type === "function") {
+      pending.push([current.argument, depth + 1]);
+    } else if (current.type === "binary") {
+      pending.push([current.left, depth + 1], [current.right, depth + 1]);
+    }
+  }
+  return true;
 }
 
 function tokenizeExpression(text) {
@@ -125,7 +190,7 @@ function tokenizeExpression(text) {
       position += 2;
       continue;
     }
-    if ("+-*/()=<>".includes(character)) {
+    if ("+-*/()=<>,".includes(character)) {
       tokens.push({ type: "operator", value: character });
       position += 1;
       continue;
@@ -140,7 +205,10 @@ function parseExpression(text) {
   return parser.parse();
 }
 
-function evaluateExpression(expression, variables) {
+function evaluateExpression(expression, variables, depth = 0) {
+  if (depth > MAX_EXPRESSION_DEPTH) {
+    return { ok: false, error: "式の再帰深度が上限を超えています。" };
+  }
   if (expression.type === "number") return { ok: true, value: expression.value };
   if (expression.type === "variable") {
     if (!Object.prototype.hasOwnProperty.call(variables, expression.name)) {
@@ -148,14 +216,19 @@ function evaluateExpression(expression, variables) {
     }
     return { ok: true, value: variables[expression.name] };
   }
+  if (expression.type === "function") {
+    const argument = evaluateExpression(expression.argument, variables, depth + 1);
+    if (!argument.ok) return argument;
+    return { ok: true, value: Math.floor(argument.value) };
+  }
   if (expression.type === "unary-minus") {
-    const operand = evaluateExpression(expression.operand, variables);
+    const operand = evaluateExpression(expression.operand, variables, depth + 1);
     if (!operand.ok) return operand;
     return { ok: true, value: -operand.value };
   }
-  const left = evaluateExpression(expression.left, variables);
+  const left = evaluateExpression(expression.left, variables, depth + 1);
   if (!left.ok) return left;
-  const right = evaluateExpression(expression.right, variables);
+  const right = evaluateExpression(expression.right, variables, depth + 1);
   if (!right.ok) return right;
   let value;
   switch (expression.operator) {
@@ -184,8 +257,15 @@ function parseAssignment(text) {
   if (!assignment) return null;
   const variable = assignment[1].toUpperCase();
   const expressionText = assignment[2].trim();
-  const expression = parseExpression(expressionText);
-  if (!expression) {
+  const parsed = parseExpression(expressionText);
+  if (parsed.status === "uninterpreted") {
+    return {
+      status: RowStatus.uninterpreted,
+      reason: "式に未対応の関数が含まれています。",
+      instruction: null
+    };
+  }
+  if (parsed.status === "error") {
     return {
       status: RowStatus.error,
       reason: "代入式の書式が不正です。",
@@ -194,7 +274,7 @@ function parseAssignment(text) {
   }
   return {
     status: RowStatus.understood,
-    instruction: { type: "assign", variable, expression }
+    instruction: { type: "assign", variable, expression: parsed.expression }
   };
 }
 
@@ -264,8 +344,15 @@ function parseIfStatement(text) {
 
   const expressionText = match[1].trim();
   const thenText = match[2].trim();
-  const expression = parseExpression(expressionText);
-  if (!expression) {
+  const parsedExpression = parseExpression(expressionText);
+  if (parsedExpression.status === "uninterpreted") {
+    return {
+      status: RowStatus.uninterpreted,
+      reason: "IF式に未対応の関数が含まれています。",
+      instruction: null
+    };
+  }
+  if (parsedExpression.status === "error") {
     if (expressionText.includes("$") || expressionText.includes(":") || expressionText.includes("ELSE")) {
       return {
         status: RowStatus.uninterpreted,
@@ -279,6 +366,7 @@ function parseIfStatement(text) {
       instruction: null
     };
   }
+  const expression = parsedExpression.expression;
 
   if (/^\d+$/.test(thenText)) {
     const targetLine = Number(thenText);
