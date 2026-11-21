@@ -229,13 +229,33 @@ function parseInputStatement(text) {
   return null;
 }
 
+function hasUnquotedIfSeparator(text) {
+  let inString = false;
+  for (let index = 0; index < text.length; index += 1) {
+    if (text[index] === '"') {
+      if (inString && text[index + 1] === '"') {
+        index += 1;
+        continue;
+      }
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+    if (text[index] === ":") return true;
+    if (text.slice(index, index + 4).toUpperCase() === "ELSE" &&
+        !/[A-Za-z0-9_$]/.test(text[index - 1] ?? "") &&
+        !/[A-Za-z0-9_$]/.test(text[index + 4] ?? "")) return true;
+  }
+  return false;
+}
+
 function parseIfStatement(text) {
-  const match = /^IF\s+(.+?)\s+THEN\s+(\d+)\s*$/i.exec(text.trim());
+  const match = /^IF\s+(.+?)\s+THEN\s+([\s\S]+)$/i.exec(text.trim());
   if (!match) {
     if (/^IF\b/i.test(text.trim())) {
       return {
         status: RowStatus.uninterpreted,
-        reason: "IF命令は「IF 式 THEN 行番号」の形式のみ対応しています。",
+        reason: "IF命令の形式は未対応です。",
         instruction: null
       };
     }
@@ -243,7 +263,7 @@ function parseIfStatement(text) {
   }
 
   const expressionText = match[1].trim();
-  const targetLine = Number(match[2]);
+  const thenText = match[2].trim();
   const expression = parseExpression(expressionText);
   if (!expression) {
     if (expressionText.includes("$") || expressionText.includes(":") || expressionText.includes("ELSE")) {
@@ -259,16 +279,53 @@ function parseIfStatement(text) {
       instruction: null
     };
   }
-  if (!Number.isSafeInteger(targetLine)) {
+
+  if (/^\d+$/.test(thenText)) {
+    const targetLine = Number(thenText);
+    if (!Number.isSafeInteger(targetLine)) {
+      return {
+        status: RowStatus.error,
+        reason: "IFのジャンプ先行番号が安全な整数の範囲外です。",
+        instruction: null
+      };
+    }
     return {
-      status: RowStatus.error,
-      reason: "IFのジャンプ先行番号が安全な整数の範囲外です。",
+      status: RowStatus.understood,
+      instruction: { type: "if", expression, targetLine }
+    };
+  }
+
+  if (hasUnquotedIfSeparator(thenText)) {
+    return {
+      status: RowStatus.uninterpreted,
+      reason: "IFのTHEN後の複数文またはELSE構文は未対応です。",
       instruction: null
     };
   }
+
+  const thenStatement = parseStatement(thenText);
+  if (thenStatement.status === RowStatus.error) return thenStatement;
+  if (thenStatement.status === RowStatus.uninterpreted) {
+    return {
+      ...thenStatement,
+      reason: `IFのTHEN後の文は未対応です。${thenStatement.reason ?? ""}`.trim()
+    };
+  }
+  if (!["print", "assign"].includes(thenStatement.instruction?.type)) {
+    return {
+      status: RowStatus.uninterpreted,
+      reason: "IFのTHEN後は単一のPRINTまたは代入文のみ対応しています。",
+      instruction: null
+    };
+  }
+
   return {
     status: RowStatus.understood,
-    instruction: { type: "if", expression, targetLine }
+    instruction: {
+      type: "if",
+      expression,
+      thenInstruction: thenStatement.instruction
+    }
   };
 }
 
@@ -463,7 +520,8 @@ function analyzePagesInternal(pages, { complete = false } = {}) {
 
   for (const row of rows) {
     if (row.status !== RowStatus.understood ||
-        !["goto", "if"].includes(row.instruction?.type)) continue;
+        !(row.instruction?.type === "goto" ||
+          (row.instruction?.type === "if" && row.instruction.targetLine !== undefined))) continue;
     const targetLine = row.instruction.targetLine;
     const targets = rowsByNumber.get(targetLine) ?? [];
     if (targets.length > 1) {
@@ -614,11 +672,45 @@ export function advanceExecution(analysis, state) {
         nextLine: result ? row.instruction.targetLine : null,
         step: steps
       };
-      if (result) {
+      if (result && row.instruction.thenInstruction?.type === "print") {
+        event = {
+          type: "print",
+          row,
+          value: row.instruction.thenInstruction.value,
+          conditional: true,
+          step: steps
+        };
+      } else if (result && row.instruction.thenInstruction?.type === "assign") {
+        const assignment = row.instruction.thenInstruction;
+        const assigned = evaluateExpression(assignment.expression, variables);
+        if (!assigned.ok) {
+          done = true;
+          event = {
+            type: "runtime-error",
+            row,
+            reason: assigned.error,
+            conditional: true,
+            step: steps
+          };
+        } else {
+          variables[assignment.variable] = assigned.value;
+          state = { ...state, variables };
+          event = {
+            type: "assign",
+            row,
+            variable: assignment.variable,
+            value: assigned.value,
+            conditional: true,
+            step: steps
+          };
+        }
+      } else if (result && row.instruction.targetLine !== undefined) {
         const targetPosition = analysis.timeline.findIndex(
           target => target.sourceLine === row.jumpTargetSourceLine
         );
         if (targetPosition !== -1) position = targetPosition;
+      } else if (result) {
+        throw new Error("IFのTHEN命令が未対応です。");
       }
     }
   } else if (row.instruction.type === "goto") {

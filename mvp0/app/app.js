@@ -302,6 +302,8 @@ function createLogEntry(event) {
   const title = event.type === "skipped"
     ? `#${event.step} · 入力行${event.row.sourceLine} / BASIC行${event.row.lineNumber} · ${event.label}`
     : `#${event.step} · 入力行${event.row.sourceLine} / BASIC行${event.row.lineNumber} · ${
+      event.conditional ? "IF評価 → 真 → " : ""
+    }${
       event.type === "print" ? "PRINT" :
       event.type === "goto" ? `GOTO ${event.targetLine}` :
       event.type === "rem" ? "REM（no-op）" :
