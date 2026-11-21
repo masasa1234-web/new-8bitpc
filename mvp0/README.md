@@ -10,12 +10,16 @@ Compact forms such as `10PRINT"A"` and `10GOTO100` are accepted when the
 command/argument boundary is clear. Ambiguous forms such as `10PRINTA` remain
 uninterpreted. These are MVP input rules, not claims about N88-BASIC hardware.
 
-The MVP 1-B expression subset supports numeric literals, unary minus,
+The expression subset supports numeric literals, unary minus,
 parentheses, `+`, `-`, `*`, `/`, and comparisons (`=`, `<>`, `<`, `<=`, `>`,
-`>=`). Variable names start with an ASCII letter and are case-insensitive.
-Comparison results use `-1` for true and `0` for false. Division by zero and
-references to undefined variables stop that statement with a runtime error.
-Malformed expressions are parse errors. MVP 1-C adds `IF expression THEN
+`>=`). The numeric function `INT(expression)` returns the greatest integer less
+than or equal to its argument (equivalent to `Math.floor`), including within
+larger expressions and `IF` conditions. Expression depth is limited to 64.
+Variable names start with an ASCII letter and are case-insensitive. Comparison
+results use `-1` for true and `0` for false. Division by zero and references to
+undefined variables stop that statement with a runtime error. Malformed
+expressions are parse errors; expressions containing unknown functions remain
+uninterpreted and are not partially executed. MVP 1-C adds `IF expression THEN
 line-number`, `IF expression THEN PRINT "string"`, and `IF expression THEN
 assignment`. A true inline PRINT or assignment executes as part of the IF
 statement's single step; a false condition skips the THEN statement and advances
@@ -23,7 +27,7 @@ to the next row. `THEN GOTO`, `THEN REM`, `THEN END`, colon-separated statements
 `ELSE`, and other THEN forms remain uninterpreted and are not executable.
 Malformed supported THEN statements keep the existing `parseStatement`
 error/uninterpreted classification. `FOR...NEXT`, `GOSUB...RETURN`, `RND`,
-`INT`, `CLS`, and `PRINT` expressions remain outside this MVP subset.
+`CLS`, and `PRINT` expressions remain outside this MVP subset.
 
 MVP 1-D supports one numeric variable input in `INPUT A` or
 `INPUT "prompt";A` form. It pauses the worker for a dedicated input dialog,
