@@ -6,6 +6,40 @@ export const RowStatus = Object.freeze({
 });
 
 const MAX_EXPRESSION_DEPTH = 64;
+export const DEFAULT_RANDOM_SEED = 0x2f6e2b1;
+export const TEST_RANDOM_SEED = 0x12345678;
+
+export function normalizeRandomSeed(value) {
+  const integer = Math.floor(Number(value));
+  if (!Number.isFinite(integer)) return DEFAULT_RANDOM_SEED;
+  return integer >>> 0;
+}
+
+export function acquireRandomSeed() {
+  if (typeof globalThis.crypto?.getRandomValues === "function") {
+    const values = new Uint32Array(1);
+    globalThis.crypto.getRandomValues(values);
+    return values[0];
+  }
+  return normalizeRandomSeed(Date.now() ^ Math.floor(Math.random() * 0xffffffff));
+}
+
+export function createRandomGenerator(seed) {
+  const normalizedSeed = normalizeRandomSeed(seed);
+  return { seed: normalizedSeed, state: normalizedSeed };
+}
+
+export function nextRandomValue(generator) {
+  let state = normalizeRandomSeed(generator.state);
+  state ^= state << 13;
+  state ^= state >>> 17;
+  state ^= state << 5;
+  state = normalizeRandomSeed(state);
+  return {
+    generator: { seed: generator.seed, state },
+    value: state / 0x100000000
+  };
+}
 
 class ExpressionParser {
   constructor(text) {
@@ -116,6 +150,42 @@ class ExpressionParser {
   }
 
   parseFunction(name) {
+    if (name === "RND") {
+      let depth = 1;
+      let sawComma = false;
+      for (let index = this.position; index < this.tokens.length; index += 1) {
+        if (this.tokens[index].value === "(") depth += 1;
+        if (this.tokens[index].value === ")") {
+          depth -= 1;
+          if (depth === 0) break;
+        }
+        if (this.tokens[index].value === "," && depth === 1) sawComma = true;
+      }
+      if (this.tokens[this.position]?.value === ",") sawComma = true;
+      if (sawComma) {
+        const closeIndex = this.tokens.findIndex((token, index) =>
+          index >= this.position && token.value === ")"
+        );
+        if (closeIndex === -1) return null;
+        this.position = closeIndex + 1;
+        this.hasUnsupportedFunction = true;
+        return { type: "unsupported-function" };
+      }
+      if (this.tokens[this.position]?.value === ")") {
+        this.position += 1;
+        this.hasUnsupportedFunction = true;
+        return { type: "unsupported-function" };
+      }
+      const argument = this.parseComparison();
+      if (!argument || this.position >= this.tokens.length ||
+          this.tokens[this.position].value !== ")") return null;
+      this.position += 1;
+      if (argument.type === "number" && argument.value === 1) {
+        return { type: "function", name, argument };
+      }
+      this.hasUnsupportedFunction = true;
+      return { type: "unsupported-function" };
+    }
     if (name !== "INT") {
       let depth = 1;
       while (this.position < this.tokens.length) {
@@ -205,30 +275,37 @@ function parseExpression(text) {
   return parser.parse();
 }
 
-function evaluateExpression(expression, variables, depth = 0) {
+function evaluateExpression(expression, variables, depth = 0, randomState) {
   if (depth > MAX_EXPRESSION_DEPTH) {
     return { ok: false, error: "式の再帰深度が上限を超えています。" };
   }
-  if (expression.type === "number") return { ok: true, value: expression.value };
+  const generator = randomState ?? createRandomGenerator(DEFAULT_RANDOM_SEED);
+  if (expression.type === "number") {
+    return { ok: true, value: expression.value, randomState: generator };
+  }
   if (expression.type === "variable") {
     if (!Object.prototype.hasOwnProperty.call(variables, expression.name)) {
       return { ok: false, error: `変数${expression.name}は未定義です。` };
     }
-    return { ok: true, value: variables[expression.name] };
+    return { ok: true, value: variables[expression.name], randomState: generator };
   }
   if (expression.type === "function") {
-    const argument = evaluateExpression(expression.argument, variables, depth + 1);
+    if (expression.name === "RND") {
+      const next = nextRandomValue(generator);
+      return { ok: true, value: next.value, randomState: next.generator };
+    }
+    const argument = evaluateExpression(expression.argument, variables, depth + 1, generator);
     if (!argument.ok) return argument;
-    return { ok: true, value: Math.floor(argument.value) };
+    return { ok: true, value: Math.floor(argument.value), randomState: argument.randomState };
   }
   if (expression.type === "unary-minus") {
-    const operand = evaluateExpression(expression.operand, variables, depth + 1);
+    const operand = evaluateExpression(expression.operand, variables, depth + 1, generator);
     if (!operand.ok) return operand;
-    return { ok: true, value: -operand.value };
+    return { ok: true, value: -operand.value, randomState: operand.randomState };
   }
-  const left = evaluateExpression(expression.left, variables, depth + 1);
+  const left = evaluateExpression(expression.left, variables, depth + 1, generator);
   if (!left.ok) return left;
-  const right = evaluateExpression(expression.right, variables, depth + 1);
+  const right = evaluateExpression(expression.right, variables, depth + 1, left.randomState);
   if (!right.ok) return right;
   let value;
   switch (expression.operator) {
@@ -248,7 +325,7 @@ function evaluateExpression(expression, variables, depth = 0) {
     default: return { ok: false, error: `未対応の演算子${expression.operator}です。` };
   }
   return Number.isFinite(value)
-    ? { ok: true, value }
+    ? { ok: true, value, randomState: right.randomState }
     : { ok: false, error: "式の計算結果が数値の範囲外です。" };
 }
 
@@ -426,6 +503,51 @@ function parseStatement(text) {
     const assignment = parseAssignment(letMatch[1]);
     if (assignment) return assignment;
     return { status: RowStatus.error, reason: "LETの代入式の書式が不正です。" };
+  }
+  const randomizeMatch = /^RANDOMIZE(?:\s+(.*))?$/i.exec(text.trim());
+  if (randomizeMatch) {
+    const argumentText = randomizeMatch[1]?.trim() ?? "";
+    if (!argumentText) {
+      return {
+        status: RowStatus.understood,
+        instruction: { type: "randomize", expression: null }
+      };
+    }
+    if (argumentText.includes(",")) {
+      return {
+        status: RowStatus.uninterpreted,
+        reason: "RANDOMIZEの引数形式は未解釈です。",
+        instruction: null
+      };
+    }
+    let balance = 0;
+    let hasMismatch = false;
+    for (const character of argumentText) {
+      if (character === "(") balance += 1;
+      if (character === ")") {
+        balance -= 1;
+        if (balance < 0) hasMismatch = true;
+      }
+    }
+    if (balance !== 0 || hasMismatch) {
+      return {
+        status: RowStatus.error,
+        reason: "RANDOMIZEの括弧の書式が不正です。",
+        instruction: null
+      };
+    }
+    const parsed = parseExpression(argumentText);
+    if (parsed.status === "understood") {
+      return {
+        status: RowStatus.understood,
+        instruction: { type: "randomize", expression: parsed.expression }
+      };
+    }
+    return {
+      status: RowStatus.uninterpreted,
+      reason: "RANDOMIZEの引数形式は未解釈です。",
+      instruction: null
+    };
   }
   const bareAssignment = parseAssignment(text);
   if (bareAssignment) return bareAssignment;
@@ -681,8 +803,18 @@ export function analyzeProgram(raw, options = {}) {
   return { raw, ...analysis };
 }
 
-export function createExecutionState() {
-  return { position: 0, steps: 0, done: false, variables: {} };
+export function createExecutionState(options = {}) {
+  const randomSeed = normalizeRandomSeed(
+    options.randomSeed === undefined ? DEFAULT_RANDOM_SEED : options.randomSeed
+  );
+  return {
+    position: 0,
+    steps: 0,
+    done: false,
+    variables: {},
+    randomSeed,
+    randomState: createRandomGenerator(randomSeed)
+  };
 }
 
 export function advanceExecution(analysis, state) {
@@ -705,12 +837,59 @@ export function advanceExecution(analysis, state) {
     event = { type: "print", row, value: row.instruction.value, step: steps };
   } else if (row.instruction.type === "rem") {
     event = { type: "rem", row, step: steps };
+  } else if (row.instruction.type === "randomize") {
+    let randomSeed;
+    let seedSource;
+    if (row.instruction.expression === null) {
+      randomSeed = acquireRandomSeed();
+      seedSource = "new";
+    } else {
+      const variables = { ...(state.variables ?? {}) };
+      const evaluated = evaluateExpression(
+        row.instruction.expression,
+        variables,
+        0,
+        state.randomState
+      );
+      if (!evaluated.ok) {
+        done = true;
+        event = {
+          type: "runtime-error",
+          row,
+          reason: evaluated.error,
+          step: steps
+        };
+        position = state.position + 1;
+      } else {
+        randomSeed = normalizeRandomSeed(evaluated.value);
+        seedSource = "specified";
+      }
+    }
+    if (!done) {
+      state = {
+        ...state,
+        randomSeed,
+        randomState: createRandomGenerator(randomSeed)
+      };
+      event = {
+        type: "randomize",
+        row,
+        seed: randomSeed,
+        seedSource,
+        step: steps
+      };
+    }
   } else if (row.instruction.type === "end") {
     event = { type: "end", row, step: steps };
     done = true;
   } else if (row.instruction.type === "assign") {
     const variables = { ...(state.variables ?? {}) };
-    const evaluated = evaluateExpression(row.instruction.expression, variables);
+    const evaluated = evaluateExpression(
+      row.instruction.expression,
+      variables,
+      0,
+      state.randomState
+    );
     if (!evaluated.ok) {
       done = true;
       done = true;
@@ -722,7 +901,7 @@ export function advanceExecution(analysis, state) {
       };
     } else {
       variables[row.instruction.variable] = evaluated.value;
-      state = { ...state, variables };
+      state = { ...state, variables, randomState: evaluated.randomState };
       event = {
         type: "assign",
         row,
@@ -741,7 +920,12 @@ export function advanceExecution(analysis, state) {
     };
   } else if (row.instruction.type === "if") {
     const variables = { ...(state.variables ?? {}) };
-    const evaluated = evaluateExpression(row.instruction.expression, variables);
+    const evaluated = evaluateExpression(
+      row.instruction.expression,
+      variables,
+      0,
+      state.randomState
+    );
     if (!evaluated.ok) {
       done = true;
       event = {
@@ -751,6 +935,7 @@ export function advanceExecution(analysis, state) {
         step: steps
       };
     } else {
+      state = { ...state, randomState: evaluated.randomState };
       const result = evaluated.value !== 0;
       event = {
         type: "if",
@@ -770,7 +955,12 @@ export function advanceExecution(analysis, state) {
         };
       } else if (result && row.instruction.thenInstruction?.type === "assign") {
         const assignment = row.instruction.thenInstruction;
-        const assigned = evaluateExpression(assignment.expression, variables);
+        const assigned = evaluateExpression(
+          assignment.expression,
+          variables,
+          0,
+          state.randomState
+        );
         if (!assigned.ok) {
           done = true;
           event = {
@@ -782,7 +972,7 @@ export function advanceExecution(analysis, state) {
           };
         } else {
           variables[assignment.variable] = assigned.value;
-          state = { ...state, variables };
+          state = { ...state, variables, randomState: assigned.randomState };
           event = {
             type: "assign",
             row,
@@ -817,7 +1007,13 @@ export function advanceExecution(analysis, state) {
   }
 
   return {
-    state: { position, steps, done, variables: state.variables ?? {} },
+    state: {
+      ...state,
+      position,
+      steps,
+      done,
+      variables: state.variables ?? {}
+    },
     event
   };
 }

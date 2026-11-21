@@ -308,6 +308,7 @@ function createLogEntry(event) {
       event.type === "goto" ? `GOTO ${event.targetLine}` :
       event.type === "rem" ? "REM（no-op）" :
       event.type === "assign" ? `代入 ${event.variable} = ${event.value}` :
+      event.type === "randomize" ? `RANDOMIZE 種 = ${event.seed}${event.seedSource === "new" ? "（新しい種）" : ""}` :
       event.type === "input-wait" ? `INPUT待機（変数 ${event.variable}）` :
       event.type === "input-complete" ? `入力 ${event.variable} = ${event.value}` :
       event.type === "if" ? `IF評価 → ${event.result ? "真" : "偽"} → ${event.result ? `行${event.targetLine}へジャンプ` : "次行へ進む"}` :

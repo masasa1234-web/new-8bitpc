@@ -4,8 +4,10 @@ import {
   advanceExecution,
   analyzeProgram,
   createExecutionState,
+  DEFAULT_RANDOM_SEED,
   parseInputNumber,
-  RowStatus
+  RowStatus,
+  TEST_RANDOM_SEED
 } from "../src/basic.js";
 import {
   commitPage,
@@ -650,10 +652,10 @@ test("invalid INT calls are errors and unknown functions keep whole rows uninter
     '40 D=INT(1+)\n' +
     '50 E=INT((1+2)\n' +
     '60 F=INT(1+2))\n' +
-    '70 G=RND(1)\n' +
-    '80 H=INT(RND(1))\n' +
-    '90 I=1+RND(1)\n' +
-    '100 IF RND(1)>0 THEN 200\n' +
+    '70 G=RND(2)\n' +
+    '80 H=INT(RND(2))\n' +
+    '90 I=1+RND(2)\n' +
+    '100 IF RND(2)>0 THEN 200\n' +
     '110 PRINT "AFTER"\n' +
     '120 END'
   );
@@ -721,6 +723,132 @@ test("INT preserves runtime errors and expressions are limited to depth 64", () 
   result = advanceExecution(depthAnalysis, createExecutionState());
   assert.equal(result.event.type, "assign");
   assert.equal(result.event.value, 1);
+});
+
+test("RND uses a fixed default seed when RANDOMIZE is not called", () => {
+  const analysis = analyzeProgram("10 A=RND(1)\n20 B=RND(1)\n30 END");
+  const run = () => {
+    let state = createExecutionState();
+    const values = {};
+    for (let index = 0; index < 3; index += 1) {
+      const result = advanceExecution(analysis, state);
+      state = result.state;
+      if (result.event?.type === "assign") values[result.event.variable] = result.event.value;
+    }
+    return values;
+  };
+  assert.deepEqual(run(), run());
+  assert.equal(createExecutionState().randomSeed, DEFAULT_RANDOM_SEED);
+  assert.equal(createExecutionState({ randomSeed: TEST_RANDOM_SEED }).randomSeed, TEST_RANDOM_SEED);
+});
+
+test("RANDOMIZE specified and decimal seeds reset RND for deterministic replay", () => {
+  const analysis = analyzeProgram(
+    "10 RANDOMIZE 123.75\n" +
+    "20 A=RND(1)\n" +
+    "30 B=RND(1)\n" +
+    "40 END"
+  );
+  const run = () => {
+    let state = createExecutionState();
+    const events = [];
+    while (!state.done) {
+      const result = advanceExecution(analysis, state);
+      state = result.state;
+      if (result.event) events.push(result.event);
+    }
+    return {
+      events,
+      state,
+      values: Object.fromEntries(
+        events
+          .filter(event => event.type === "assign")
+          .map(event => [event.variable, event.value])
+      )
+    };
+  };
+  const first = run();
+  const replay = run();
+  assert.equal(first.events[0].type, "randomize");
+  assert.equal(first.events[0].seed, 123);
+  assert.equal(first.events[0].seedSource, "specified");
+  assert.deepEqual(replay.values, first.values);
+
+  const replayAnalysis = analyzeProgram(
+    `10 RANDOMIZE ${first.events[0].seed}\n` +
+    "20 A=RND(1)\n" +
+    "30 B=RND(1)\n" +
+    "40 END"
+  );
+  const replayEvents = [];
+  let replayState = createExecutionState();
+  while (!replayState.done) {
+    const result = advanceExecution(replayAnalysis, replayState);
+    replayState = result.state;
+    if (result.event) replayEvents.push(result.event);
+  }
+  assert.deepEqual(
+    replayEvents.filter(event => event.type === "assign").map(event => event.value),
+    Object.values(first.values)
+  );
+});
+
+test("argument-less RANDOMIZE records a generated seed and resets the generator", () => {
+  const analysis = analyzeProgram("10 RANDOMIZE\n20 A=RND(1)\n30 END");
+  let state = createExecutionState();
+  const randomize = advanceExecution(analysis, state);
+  state = randomize.state;
+  assert.equal(randomize.event.type, "randomize");
+  assert.equal(randomize.event.seedSource, "new");
+  assert.equal(Number.isFinite(randomize.event.seed), true);
+  assert.equal(randomize.event.seed >= 0 && randomize.event.seed <= 0xffffffff, true);
+
+  const rnd = advanceExecution(analysis, state);
+  assert.equal(rnd.event.type, "assign");
+  assert.ok(rnd.event.value >= 0 && rnd.event.value < 1);
+});
+
+test("RND and RANDOMIZE syntax stays classified by existing parse rules", () => {
+  const analysis = analyzeProgram(
+    "10 A=RND(1)\n" +
+    "20 B=RND()\n" +
+    "30 C=RND(1,2)\n" +
+    "40 D=RND(2)\n" +
+    "50 RANDOMIZE 1.9\n" +
+    "60 RANDOMIZE 1,2\n" +
+    "70 RANDOMIZE\n" +
+    "80 RANDOMIZE (1\n" +
+    "90 END"
+  );
+  assert.deepEqual(analysis.rows.map(row => row.status), [
+    RowStatus.understood,
+    RowStatus.uninterpreted,
+    RowStatus.uninterpreted,
+    RowStatus.uninterpreted,
+    RowStatus.understood,
+    RowStatus.uninterpreted,
+    RowStatus.understood,
+    RowStatus.error,
+    RowStatus.understood
+  ]);
+  assert.deepEqual(
+    analysis.executable.map(row => row.lineNumber),
+    [10, 50, 70, 90]
+  );
+
+  const stateResults = [];
+  let state = createExecutionState({ randomSeed: TEST_RANDOM_SEED });
+  while (!state.done) {
+    const result = advanceExecution(analysis, state);
+    state = result.state;
+    if (result.event) stateResults.push(result.event);
+  }
+  const randomizeEvents = stateResults.filter(event => event.type === "randomize");
+  assert.equal(randomizeEvents[0].seed, 1);
+  assert.equal(randomizeEvents[1].seedSource, "new");
+
+  const rndEvent = stateResults.find(event => event.type === "assign" && event.variable === "A");
+  assert.ok(rndEvent.value >= 0 && rndEvent.value < 1);
 });
 
 test("undefined variables and division by zero are runtime errors", () => {
