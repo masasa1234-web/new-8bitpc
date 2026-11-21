@@ -15,6 +15,12 @@ parentheses, `+`, `-`, `*`, `/`, and comparisons (`=`, `<>`, `<`, `<=`, `>`,
 `>=`). The numeric function `INT(expression)` returns the greatest integer less
 than or equal to its argument (equivalent to `Math.floor`), including within
 larger expressions and `IF` conditions. Expression depth is limited to 64.
+`RND(1)` returns a random value greater than or equal to `0` and less than `1`.
+`RANDOMIZE expression` uses the expression rounded down to an integer as the
+seed. `RANDOMIZE` without an argument uses a newly acquired seed for each run
+and records that seed in the execution log, allowing the same sequence to be
+replayed by passing the recorded seed to `RANDOMIZE`. Reproducing the original
+N88-BASIC random sequence is not a goal.
 Variable names start with an ASCII letter and are case-insensitive. Comparison
 results use `-1` for true and `0` for false. Division by zero and references to
 undefined variables stop that statement with a runtime error. Malformed
@@ -26,8 +32,8 @@ statement's single step; a false condition skips the THEN statement and advances
 to the next row. `THEN GOTO`, `THEN REM`, `THEN END`, colon-separated statements,
 `ELSE`, and other THEN forms remain uninterpreted and are not executable.
 Malformed supported THEN statements keep the existing `parseStatement`
-error/uninterpreted classification. `FOR...NEXT`, `GOSUB...RETURN`, `RND`,
-`CLS`, and `PRINT` expressions remain outside this MVP subset.
+error/uninterpreted classification. `FOR...NEXT`, `GOSUB...RETURN`, `CLS`,
+and `PRINT` expressions remain outside this MVP subset.
 
 MVP 1-D supports one numeric variable input in `INPUT A` or
 `INPUT "prompt";A` form. It pauses the worker for a dedicated input dialog,
