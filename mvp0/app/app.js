@@ -29,6 +29,7 @@ const committedPages = document.querySelector("#committed-pages");
 const pageCounts = document.querySelector("#page-counts");
 const parsedRows = document.querySelector("#parsed-rows");
 const executionLog = document.querySelector("#execution-log");
+const executionLogEmpty = document.querySelector("#execution-log-empty");
 const monitorScreen = document.querySelector("#monitor-screen");
 const errorCount = document.querySelector("#error-count");
 const uninterpretedCount = document.querySelector("#uninterpreted-count");
@@ -206,7 +207,7 @@ function renderAnalysis() {
 
   const signal = getProgramSignal(analysis);
   app.dataset.state = signal.state;
-  overallStatus.textContent = signal.label;
+  overallStatus.textContent = `解析状態：${signal.label}`;
 
   completeStatus.textContent = session.complete
     ? "完成：未解決の参照を誤りとして確定しました。入力すると再解析に戻ります。"
@@ -327,8 +328,10 @@ function createLogEntry(event) {
 }
 
 function addLogEntries(events) {
+  if (events.length === 0) return;
   const fragment = document.createDocumentFragment();
   for (const event of events) fragment.append(createLogEntry(event));
+  executionLogEmpty.hidden = true;
   executionLog.append(fragment);
   while (executionLog.children.length > 200) executionLog.firstElementChild.remove();
   executionLog.scrollTop = executionLog.scrollHeight;
@@ -354,7 +357,7 @@ function showStopCandidate(reason) {
     }
   } else {
     stopReason.textContent =
-      `ステップ${reason.step}：${reason.stepsWithoutOutput}ステップ連続でPRINT出力がありません。`;
+      `ステップ${reason.step}：${reason.stepsWithoutOutput}ステップ連続でPRINT出力もINPUT待機もありません。`;
     if (reason.location) {
       appendText(
         stopLocations,
@@ -407,7 +410,7 @@ function resolveStopDecision(decision) {
 function updateSuppressionStatus(suppressedReasons = {}) {
   const activeReasons = [];
   if (suppressedReasons.skippedMajority) activeReasons.push("飛ばした行が多い");
-  if (suppressedReasons.noOutput) activeReasons.push("PRINT出力がない");
+  if (suppressedReasons.noOutput) activeReasons.push("PRINT出力もINPUT待機もない");
   suppressionStatus.hidden = activeReasons.length === 0;
   suppressionStatus.textContent = activeReasons.length
     ? `自動確認を抑止中（この実行のみ）：${activeReasons.join("、")}`
@@ -453,6 +456,7 @@ cancelPageEditButton.addEventListener("click", () => {
 runButton.addEventListener("click", () => {
   if (session.pages.length === 0) return;
   executionLog.replaceChildren();
+  executionLogEmpty.hidden = false;
   monitorScreen.textContent = "";
   stepCount.textContent = "0";
   executionStatus.textContent = "";
@@ -494,6 +498,7 @@ inputDialog.addEventListener("cancel", event => {
 stopDialog.addEventListener("cancel", event => event.preventDefault());
 document.querySelector("#clear-output-button").addEventListener("click", () => {
   executionLog.replaceChildren();
+  executionLogEmpty.hidden = false;
   monitorScreen.textContent = "";
 });
 

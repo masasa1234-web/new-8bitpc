@@ -18,9 +18,10 @@
         </div>
         <div class="status-card" aria-live="polite">
           <span class="status-light" aria-hidden="true"></span>
-          <span id="overall-status">通常</span>
+          <span id="overall-status">解析状態：通常</span>
         </div>
       </header>
+      <p class="help-text" id="analysis-state-help">未解釈・誤りの行は実行時にスキップされます。これらは直ちに実行エラーや実行停止を意味しませんが、停止ポリシーによる確認の対象になる場合があります。</p>
 
       <section class="concept-panel" aria-labelledby="concept-heading">
         <h2 id="concept-heading">コンセプトの核</h2>
@@ -110,6 +111,7 @@
           </section>
           <section class="log-panel" aria-labelledby="log-heading">
             <h3 id="log-heading">実行ログ</h3>
+            <p id="execution-log-empty" class="empty-state">実行ログはこの実行中の記録です。現在、表示する項目はありません。</p>
             <div id="execution-log" class="execution-log" role="log" aria-live="polite" aria-relevant="additions"></div>
           </section>
         </section>
@@ -118,6 +120,7 @@
         <form method="dialog" id="stop-decision-form">
           <p class="zone-number">実行状態の確認</p>
           <h2 id="stop-dialog-title">実行を一時停止しました</h2>
+          <p class="stop-reason">停止条件に達したため、続行するか終了するか確認しています。実行エラーではありません。</p>
           <p id="stop-reason" class="stop-reason"></p>
           <ul id="stop-locations" class="stop-locations"></ul>
           <label id="suppress-choice" class="suppress-choice" hidden>
@@ -146,7 +149,7 @@
           </div>
         </form>
       </dialog>
-      <footer>今できること：文字列PRINT・CLS・GOTO・REM・END・数値変数と式による代入・INT・RND(1)・RANDOMIZE・IF THEN行番号・単一数値INPUT。文字列変数・複数入力などは未対応です。入力・解釈・実行は暫定実装です。</footer>
+      <footer>対応範囲：文字列PRINT、数値代入・式（INT／RND／RANDOMIZE）、数値INPUT、IF、制御命令（GOTO／REM／END）、CLS。IFのTHEN後は、行番号・単一PRINT・単一代入に対応します。細かな書式・制限はREADMEを参照してください。</footer>
     </main>
   </body>
 </html>

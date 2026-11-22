@@ -63,12 +63,22 @@ incomplete state.
 
 ## UI copy
 
-The page now presents the approved brand copy and a separate “concept core”
-section, distinct from the current feature summary. The MVP stage label appears
-once in the page header. Supported statements are not generated from parser
-logic: the parser has no shared capability metadata, so extracting a list from
-its implementation would duplicate the manually maintained feature summary
-without reliably keeping the two in sync.
+The footer summarizes supported categories; detailed syntax and limitations
+are described here. In particular, the THEN part of `IF` supports a line number,
+a single `PRINT`, or a single assignment. Supported statements are not generated
+from parser logic because the parser has no shared capability metadata.
+
+The header's normal/attention/warning label describes analysis state. Rows that
+are uninterpreted or erroneous are skipped during execution; those states do
+not immediately mean a runtime error or that execution has stopped, though the
+stop policy may ask for confirmation. The stop-confirmation dialog waits for a
+continue-or-stop decision and is distinct from a runtime error.
+
+The empty execution-log message means that there are no log entries displayed
+for the current run; it is not a saved run history. Starting a new run clears
+the log, while **表示を消去** does not change the cumulative step count. The
+monitor remains blank when there is no program output so explanatory text is
+not mixed into program output.
 
 Committed source pages are shown separately and are not rewritten by analysis
 or execution. Expand a committed page and choose **このRawを編集** to load it
