@@ -72,6 +72,10 @@ are described here. In particular, the THEN part of `IF` supports a line number,
 a single `PRINT`, assignment, `CLS`, or `END`. Supported statements are not generated
 from parser logic because the parser has no shared capability metadata.
 
+The follow-up stage labels after MVP 1-E (`mvp1e-closed`) are 1-F (`df235b7`,
+UI/operational consistency), 1-G (`5fe1483`, `IF ... THEN CLS`), and 1-H
+(`a755650`, `IF ... THEN END`). This CLS stop-policy adjustment is 1-I.
+
 The header's normal/attention/warning label describes analysis state. Rows that
 are uninterpreted or erroneous are skipped during execution; those states do
 not immediately mean a runtime error or that execution has stopped, though the
@@ -118,13 +122,13 @@ numbers, and skipped-row reasons.
 
 Execution pauses when at least half of the last 20 counted steps were skipped,
 after a minimum of 10 steps, or after 500 consecutive steps without `PRINT`
-output, a `CLS` screen clear, or an INPUT wait. Each of those events clears the
-no-output counter. Reaching an INPUT row counts once as a non-skipped step.
-Input completion continues that same step; no automatic stop check runs while
-waiting. Unresolved references are excluded until **完成**. Choosing **続ける**
-doubles the next check interval, up to 160 steps for skipped rows and 4,000
-steps without output. At the cap, the prompt can be suppressed for that reason
-for the current run only.
+output or an INPUT wait. `CLS` clears the monitor but does not clear the
+no-output counter; only `PRINT` output and an INPUT wait clear it. Reaching an
+INPUT row counts once as a non-skipped step. Input completion continues that
+same step; no automatic stop check runs while waiting. Unresolved references
+are excluded until **完成**. Choosing **続ける** doubles the next check
+interval, up to 160 steps for skipped rows and 4,000 steps without output. At
+the cap, the prompt can be suppressed for that reason for the current run only.
 **停止** remains available while the worker runs; during an INPUT wait, use
 **停止** in the input dialog.
 
