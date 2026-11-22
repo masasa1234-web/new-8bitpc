@@ -37,6 +37,11 @@ test("stopping during INPUT wait clears the pending request for a rerun", async 
 
   send({ type: "run", analysis });
   const firstWait = await waitFor(0, message => message.type === "input-wait");
+  const firstWaitEvent = messages
+    .filter(message => message.type === "events")
+    .flatMap(message => message.events)
+    .find(event => event.type === "input-wait");
+  assert.equal(firstWaitEvent.deferredForStop, undefined);
   send({ type: "stop" });
   const stopped = await waitFor(firstWait.index + 1, message => message.type === "stopped");
   assert.equal(stopped.message.reason, "manual");
@@ -103,10 +108,11 @@ test("INPUT arrival is counted once before a stop prompt, then resumes into inpu
   const initialEvents = messages
     .filter(message => message.type === "events")
     .flatMap(message => message.events);
-  assert.equal(
-    initialEvents.filter(event => event.type === "input-wait" && event.step === 10).length,
-    1
+  const deferredInput = initialEvents.find(
+    event => event.type === "input-wait" && event.step === 10
   );
+  assert.ok(deferredInput);
+  assert.equal(deferredInput.deferredForStop, true);
 
   const continueIndex = messages.length;
   send({ type: "resolve-stop", decision: "continue" });

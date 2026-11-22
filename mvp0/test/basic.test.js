@@ -277,6 +277,43 @@ test("INPUT numeric validation accepts decimal and negative values only", () => 
   assert.equal(parseInputNumber("１．５"), null);
 });
 
+test("numeric INPUT values compare exactly against multi-digit numbers", () => {
+  const analysis = analyzeProgram(
+    '10 A=76\n' +
+    "20 INPUT B\n" +
+    '30 IF B=A THEN PRINT "EQ"\n' +
+    '40 IF B<A THEN PRINT "LT"\n' +
+    '50 IF B>A THEN PRINT "GT"\n' +
+    "60 END"
+  );
+  assert.ok(analysis.rows.every(row => row.status === RowStatus.understood));
+
+  const executeGuess = text => {
+    let state = createExecutionState();
+    const output = [];
+    while (!state.done) {
+      const result = advanceExecution(analysis, state);
+      state = result.state;
+      if (result.event.type === "input-wait") {
+        const value = parseInputNumber(text);
+        assert.notEqual(value, null);
+        state = {
+          ...state,
+          variables: { ...state.variables, [result.event.variable]: value }
+        };
+      } else if (result.event.type === "print") {
+        output.push(result.event.value);
+      }
+    }
+    return output;
+  };
+
+  assert.deepEqual(executeGuess("7"), ["LT"]);
+  assert.deepEqual(executeGuess("70"), ["LT"]);
+  assert.deepEqual(executeGuess("76"), ["EQ"]);
+  assert.deepEqual(executeGuess("77"), ["GT"]);
+});
+
 test("the same INPUT attempts produce the same execution trace on rerun", () => {
   const analysis = analyzeProgram(
     "10 INPUT A\n20 INPUT B\n30 INPUT C\n40 LET D=A*B+C\n50 END"

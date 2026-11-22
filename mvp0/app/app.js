@@ -53,6 +53,7 @@ const stopLocations = document.querySelector("#stop-locations");
 const suppressChoice = document.querySelector("#suppress-choice");
 const suppressForRun = document.querySelector("#suppress-for-run");
 const inputDialog = document.querySelector("#input-dialog");
+const inputForm = document.querySelector("#input-form");
 const inputPrompt = document.querySelector("#input-prompt");
 const inputVariable = document.querySelector("#input-variable");
 const inputValue = document.querySelector("#input-value");
@@ -309,7 +310,9 @@ function createLogEntry(event) {
       event.type === "rem" ? "REM（no-op）" :
       event.type === "assign" ? `代入 ${event.variable} = ${event.value}` :
       event.type === "randomize" ? `RANDOMIZE 種 = ${event.seed}${event.seedSource === "new" ? "（新しい種）" : ""}` :
-      event.type === "input-wait" ? `INPUT待機（変数 ${event.variable}）` :
+      event.type === "input-wait" ? event.deferredForStop
+        ? `INPUT要求保留（変数 ${event.variable}）`
+        : `INPUT待機（変数 ${event.variable}）` :
       event.type === "input-complete" ? `入力 ${event.variable} = ${event.value}` :
       event.type === "if" ? `IF評価 → ${event.result ? "真" : "偽"} → ${event.result ? `行${event.targetLine}へジャンプ` : "次行へ進む"}` :
       event.type === "runtime-error" ? "実行エラー" :
@@ -468,7 +471,8 @@ document.querySelector("#continue-execution-button").addEventListener("click", (
 document.querySelector("#stop-execution-button").addEventListener("click", () => {
   resolveStopDecision("stop");
 });
-inputSubmitButton.addEventListener("click", () => {
+inputForm.addEventListener("submit", event => {
+  event.preventDefault();
   const value = parseInputNumber(inputValue.value);
   if (value === null) {
     inputError.hidden = false;

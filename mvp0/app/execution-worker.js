@@ -63,6 +63,7 @@ async function runLoop(thisRun) {
       );
       policyState = observed.state;
       if (observed.stop) {
+        result.event.deferredForStop = true;
         waitingForDecision = true;
         pendingStop = observed.stop;
         flushPendingEvents();

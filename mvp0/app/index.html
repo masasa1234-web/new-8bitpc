@@ -131,7 +131,7 @@
         </form>
       </dialog>
       <dialog id="input-dialog" class="stop-dialog" aria-labelledby="input-dialog-title">
-        <form method="dialog">
+        <form id="input-form">
           <p class="zone-number">入力待ち</p>
           <h2 id="input-dialog-title">数値を入力してください</h2>
           <p id="input-prompt" class="stop-reason" hidden></p>
@@ -140,7 +140,7 @@
           <input id="input-value" type="text" autocomplete="off" spellcheck="false">
           <p id="input-error" class="stop-reason" role="alert" hidden></p>
           <div class="button-row stop-dialog-actions">
-            <button id="input-submit-button" type="button">決定</button>
+            <button id="input-submit-button" type="submit">決定</button>
             <button id="input-stop-button" type="button" class="stop-button">停止</button>
             <button id="input-cancel-button" type="button" class="secondary">キャンセル</button>
           </div>
