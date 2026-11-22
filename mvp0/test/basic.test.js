@@ -1244,6 +1244,31 @@ test("B1 stops at the deterministic first step with a skipped-row majority and l
   assert.ok(stop.rows.some(row => row.pageNumber === 1 && row.pageLine === 1 && row.lineNumber === 10));
 });
 
+test("INPUT wait counts once as an external change for stop policy", () => {
+  const settings = { ...DEFAULT_STOP_SETTINGS, noOutputSteps: 500 };
+  const previous = {
+    ...createStopPolicyState(settings),
+    steps: 499,
+    stepsSinceOutput: 499,
+    nextNoOutputCheckAt: 500
+  };
+  const event = {
+    type: "input-wait",
+    row: { status: RowStatus.understood, pageNumber: 1, pageLine: 1, lineNumber: 10 }
+  };
+
+  const observed = observeExecutionStep(previous, event, false, settings);
+  assert.equal(observed.stop, null);
+  assert.equal(observed.state.steps, 500);
+  assert.equal(observed.state.stepsSinceOutput, 0);
+  assert.equal(observed.state.nextNoOutputCheckAt, 1000);
+  assert.deepEqual(observed.state.skippedWindow.at(-1), {
+    event,
+    skipped: false,
+    counted: true
+  });
+});
+
 test("B1 excludes unresolved references from the pre-completion ratio", () => {
   const settings = { ...DEFAULT_STOP_SETTINGS, minimumObservedSteps: 3, skippedWindowSteps: 5 };
   const missingTarget = analyzeProgram("10 GOTO 100");

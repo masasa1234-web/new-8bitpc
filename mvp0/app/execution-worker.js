@@ -54,8 +54,22 @@ async function runLoop(thisRun) {
       return;
     }
     if (result.event.type === "input-wait") {
-      waitingForInput = true;
       pendingInput = result.event;
+      const observed = observeExecutionStep(
+        policyState,
+        result.event,
+        currentAnalysis.complete,
+        DEFAULT_STOP_SETTINGS
+      );
+      policyState = observed.state;
+      if (observed.stop) {
+        waitingForDecision = true;
+        pendingStop = observed.stop;
+        flushPendingEvents();
+        self.postMessage({ type: "stop-candidate", reason: pendingStop, steps: currentSteps });
+        return;
+      }
+      waitingForInput = true;
       flushPendingEvents();
       self.postMessage({
         type: "input-wait",
@@ -146,6 +160,7 @@ self.addEventListener("message", ({ data }) => {
       waitingForDecision = false;
       const reason = pendingStop.type;
       pendingStop = null;
+      pendingInput = null;
       self.postMessage({ type: "stopped", steps: currentSteps, reason });
       return;
     }
@@ -163,6 +178,16 @@ self.addEventListener("message", ({ data }) => {
     });
     waitingForDecision = false;
     pendingStop = null;
+    if (pendingInput) {
+      waitingForInput = true;
+      self.postMessage({
+        type: "input-wait",
+        variable: pendingInput.variable,
+        prompt: pendingInput.prompt,
+        steps: currentSteps
+      });
+      return;
+    }
     void runLoop(runId);
     return;
   }
