@@ -357,7 +357,7 @@ function showStopCandidate(reason) {
     }
   } else {
     stopReason.textContent =
-      `ステップ${reason.step}：${reason.stepsWithoutOutput}ステップ連続でPRINT出力・CLSによる画面クリア・INPUT待機がありません。`;
+      `ステップ${reason.step}：${reason.stepsWithoutOutput}ステップ連続でPRINT出力もINPUT待機もありません。`;
     if (reason.location) {
       appendText(
         stopLocations,
@@ -410,7 +410,7 @@ function resolveStopDecision(decision) {
 function updateSuppressionStatus(suppressedReasons = {}) {
   const activeReasons = [];
   if (suppressedReasons.skippedMajority) activeReasons.push("飛ばした行が多い");
-  if (suppressedReasons.noOutput) activeReasons.push("PRINT出力・CLSによる画面クリア・INPUT待機がない");
+  if (suppressedReasons.noOutput) activeReasons.push("PRINT出力もINPUT待機もない");
   suppressionStatus.hidden = activeReasons.length === 0;
   suppressionStatus.textContent = activeReasons.length
     ? `自動確認を抑止中（この実行のみ）：${activeReasons.join("、")}`

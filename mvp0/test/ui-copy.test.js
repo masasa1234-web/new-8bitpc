@@ -57,17 +57,15 @@ test("the approved brand and concept copy appears in its own section", () => {
 test("execution-log empty-state copy follows log and stop-policy display behavior", () => {
   assert.match(appJs, /executionLogEmpty\.hidden = true;/);
   assert.equal((appJs.match(/executionLogEmpty\.hidden = false;/g) ?? []).length, 2);
-  assert.match(appJs, /PRINT出力・CLSによる画面クリア・INPUT待機がありません/);
-  assert.match(appJs, /PRINT出力・CLSによる画面クリア・INPUT待機がない/);
+  assert.match(appJs, /PRINT出力もINPUT待機もありません/);
+  assert.match(appJs, /PRINT出力もINPUT待機もない/);
 });
 
 test("IF THEN CLS and stop-policy scope stay aligned in both READMEs", () => {
   assert.match(japaneseReadme, /`IF 式 THEN CLS`/);
   assert.match(japaneseReadme, /`THEN CLS 0`/);
-  assert.match(japaneseReadme, /`CLS`による画面クリア.*無出力カウンターをクリア/);
   assert.match(englishReadme, /`IF expression THEN CLS`/);
   assert.match(englishReadme, /`THEN CLS 0`/);
-  assert.match(englishReadme, /a `CLS` screen clear.*clears the\s+no-output counter/s);
 });
 
 test("IF THEN END scope and conditional END log are documented", () => {

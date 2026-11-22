@@ -713,7 +713,7 @@ test("inline IF PRINT clears the no-output counter as one output step", () => {
   );
 });
 
-test("CLS clears the no-output counter while a false IF does not", () => {
+test("standalone and conditional CLS do not clear the no-output counter", () => {
   const previous = {
     ...createStopPolicyState(DEFAULT_STOP_SETTINGS),
     steps: DEFAULT_STOP_SETTINGS.noOutputSteps - 1,
@@ -738,9 +738,9 @@ test("CLS clears the no-output counter while a false IF does not", () => {
   assert.equal(conditionalCls.conditional, true);
   for (const event of [singleCls, conditionalCls]) {
     const observed = observeExecutionStep(previous, event, false, DEFAULT_STOP_SETTINGS);
-    assert.equal(observed.stop, null);
-    assert.equal(observed.state.stepsSinceOutput, 0);
-    assert.equal(observed.state.nextNoOutputCheckAt, DEFAULT_STOP_SETTINGS.noOutputSteps * 2);
+    assert.equal(observed.stop.type, "noOutput");
+    assert.equal(observed.stop.step, DEFAULT_STOP_SETTINGS.noOutputSteps);
+    assert.equal(observed.state.stepsSinceOutput, DEFAULT_STOP_SETTINGS.noOutputSteps);
   }
 
   assert.equal(falseIf.type, "if");
@@ -1570,7 +1570,7 @@ test("B1 continue doubles recheck intervals to the cap, then supports run-only s
   assert.equal(createStopPolicyState(settings).suppressedReasons.skippedMajority, false);
 });
 
-test("B2 stops a no-output GOTO loop at 500 steps but leaves a PRINT loop running", () => {
+test("B2 stops no-output GOTO and CLS loops at 500 steps but leaves a PRINT loop running", () => {
   const noOutput = runWithStopPolicy(analyzeProgram("10 GOTO 10"), 600);
   assert.equal(noOutput.stop.type, "noOutput");
   assert.equal(noOutput.stop.step, 500);
@@ -1580,6 +1580,11 @@ test("B2 stops a no-output GOTO loop at 500 steps but leaves a PRINT loop runnin
     pageLine: 1,
     lineNumber: 10
   });
+
+  const clearingOnly = runWithStopPolicy(analyzeProgram("10 CLS\n20 GOTO 10"), 600);
+  assert.equal(clearingOnly.stop.type, "noOutput");
+  assert.equal(clearingOnly.stop.step, 500);
+  assert.equal(clearingOnly.stop.stepsWithoutOutput, 500);
 
   const printing = runWithStopPolicy(analyzeProgram('10 PRINT "HELLO"\n20 GOTO 10'), 1500);
   assert.equal(printing.stop, null);

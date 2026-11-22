@@ -63,8 +63,7 @@ export function observeExecutionStep(previous, event, complete, settings = DEFAU
 
   let noOutputRecheckSteps = previous.noOutputRecheckSteps;
   let nextNoOutputCheckAt = previous.nextNoOutputCheckAt;
-  const clearsNoOutputCounter =
-    event.type === "print" || event.type === "cls" || event.type === "input-wait";
+  const clearsNoOutputCounter = event.type === "print" || event.type === "input-wait";
   const stepsSinceOutput = clearsNoOutputCounter ? 0 : previous.stepsSinceOutput + 1;
   if (clearsNoOutputCounter) {
     noOutputRecheckSteps = settings.noOutputSteps;
