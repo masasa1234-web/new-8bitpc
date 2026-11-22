@@ -100,11 +100,14 @@ separate and shows visited lines, step numbers, and skipped-row reasons.
 
 Execution pauses when at least half of the last 20 counted steps were skipped,
 after a minimum of 10 steps, or after 500 consecutive steps without `PRINT`
-output. Unresolved references are excluded until **完成**. Choosing **続ける**
-doubles the next check interval, up to 160 steps for skipped rows and 4,000
-steps without output. At the cap, the prompt can be suppressed for that reason
-for the current run only. **停止** remains available while the worker runs;
-during an INPUT wait, use **停止** in the input dialog.
+output or an INPUT wait. Reaching an INPUT row counts once as a non-skipped
+step and resets the no-output counter. Input completion continues that same
+step; no automatic stop check runs while waiting. Unresolved references are
+excluded until **完成**. Choosing **続ける** doubles the next check interval,
+up to 160 steps for skipped rows and 4,000 steps without output. At the cap,
+the prompt can be suppressed for that reason for the current run only.
+**停止** remains available while the worker runs; during an INPUT wait, use
+**停止** in the input dialog.
 
 On **区切り**, a page with at least five rows and a majority of uninterpreted
 rows, or a page where every row is uninterpreted, gets a non-blocking notice.
