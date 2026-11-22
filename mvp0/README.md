@@ -30,13 +30,15 @@ undefined variables stop that statement with a runtime error. Malformed
 expressions are parse errors; expressions containing unknown functions remain
 uninterpreted and are not partially executed. The supported IF forms are
 `IF expression THEN line-number`, `IF expression THEN PRINT "string"`,
-`IF expression THEN assignment`, and `IF expression THEN CLS`. A true inline
-PRINT, assignment, or CLS executes as part of the IF statement's single step;
-CLS clears only the program output area. A false condition skips the THEN
-statement and advances to the next row. `THEN CLS 0`, `THEN GOTO`, `THEN REM`,
-`THEN END`, colon-separated statements, `ELSE`, and other THEN forms remain
-uninterpreted and are not executable. Malformed supported THEN statements keep
-the existing `parseStatement` error/uninterpreted classification.
+`IF expression THEN assignment`, `IF expression THEN CLS`, and
+`IF expression THEN END`. A true inline PRINT, assignment, or CLS executes as
+part of the IF statement's single step; CLS clears only the program output
+area. A true inline END ends execution in that same single step. A false
+condition skips the THEN statement and advances to the next row. `THEN CLS 0`,
+`THEN END EXTRA`, `THEN GOTO`, `THEN REM`, colon-separated statements, `ELSE`,
+and other THEN forms are not executable; unsupported forms remain
+uninterpreted, while malformed conditions and extra END text keep the existing
+error classification from `parseStatement`.
 `FOR...NEXT`, `GOSUB...RETURN`, and `PRINT` expressions remain outside this MVP
 subset.
 
@@ -67,7 +69,7 @@ incomplete state.
 
 The footer summarizes supported categories; detailed syntax and limitations
 are described here. In particular, the THEN part of `IF` supports a line number,
-a single `PRINT`, or a single assignment. Supported statements are not generated
+a single `PRINT`, assignment, `CLS`, or `END`. Supported statements are not generated
 from parser logic because the parser has no shared capability metadata.
 
 The header's normal/attention/warning label describes analysis state. Rows that
@@ -168,10 +170,11 @@ node --test
    values are `-5`, `17`, and `-1`. Confirm `LET D=B/0` and `LET E=UNKNOWN+1`
    are reported as runtime errors and do not change the variable table.
 10. Verify IF jumps to a line number, then test `IF A=1 THEN PRINT "OK"`,
-    `IF A=1 THEN A=A+1`, and `IF A=1 THEN CLS`: a true condition runs the inline
-    PRINT, assignment, or CLS within the IF's single step, while a false
+    `IF A=1 THEN A=A+1`, `IF A=1 THEN CLS`, and `IF A=1 THEN END`: a true
+    condition runs the inline PRINT, assignment, or CLS within the IF's single
+    step, or ends execution for END; a false
     condition skips it and advances to the next row. Confirm `THEN CLS 0`,
-    `THEN GOTO`, `THEN REM`, `THEN END`, colon-separated statements, `ELSE`, and
+    `THEN END EXTRA`, `THEN GOTO`, `THEN REM`, colon-separated statements, `ELSE`, and
     unknown THEN forms leave the whole IF row uninterpreted and non-executable.
     Malformed supported statements retain the parser's existing
     error/uninterpreted classification. Unresolved line targets wait before

@@ -486,6 +486,26 @@ test("true IF THEN CLS clears through one conditional event and advances one row
   assert.equal(state.steps, 2);
 });
 
+test("true IF THEN END ends in one conditional step without executing later rows", () => {
+  const raw = '10 IF 1=1 THEN END\n20 PRINT "AFTER"';
+  const analysis = analyzeProgram(raw);
+  assert.equal(analysis.raw, raw);
+  assert.equal(analysis.rows[0].status, RowStatus.understood);
+  assert.deepEqual(analysis.rows[0].instruction.thenInstruction, { type: "end" });
+  assert.deepEqual(analysis.executable.map(row => row.lineNumber), [10, 20]);
+
+  const result = advanceExecution(analysis, createExecutionState());
+  assert.equal(result.event.type, "end");
+  assert.equal(result.event.conditional, true);
+  assert.equal(result.event.step, 1);
+  assert.equal(result.state.steps, 1);
+  assert.equal(result.state.done, true);
+
+  const afterEnd = advanceExecution(analysis, result.state);
+  assert.equal(afterEnd.event, null);
+  assert.equal(afterEnd.state.steps, 1);
+});
+
 test("false IF THEN statements are not executed and continue to the next row", () => {
   const analysis = analyzeProgram(
     '10 A=0\n20 IF A=1 THEN PRINT "NO"\n30 IF A=1 THEN A=99\n40 PRINT "NEXT"'
@@ -508,6 +528,22 @@ test("false IF THEN statements are not executed and continue to the next row", (
   assert.equal(next.event.type, "print");
   assert.equal(next.event.value, "NEXT");
   assert.equal(analysis.rows.some(row => row.sourceText.includes('"NO"')), true);
+});
+
+test("false IF THEN END records one IF step and continues to the next row", () => {
+  const analysis = analyzeProgram(
+    '10 IF 1=0 THEN END\n20 PRINT "NEXT"\n30 END'
+  );
+  const conditional = advanceExecution(analysis, createExecutionState());
+  assert.equal(conditional.event.type, "if");
+  assert.equal(conditional.event.result, false);
+  assert.equal(conditional.event.step, 1);
+  assert.equal(conditional.state.done, false);
+
+  const next = advanceExecution(analysis, conditional.state);
+  assert.equal(next.event.type, "print");
+  assert.equal(next.event.value, "NEXT");
+  assert.equal(next.event.step, 2);
 });
 
 test("false IF THEN CLS emits no clear event and continues to the next row", () => {
@@ -535,7 +571,7 @@ test("out-of-scope IF THEN tails remain uninterpreted as whole rows", () => {
   const raw =
     "10 IF A=1 THEN GOTO 100\n" +
     "20 IF A=1 THEN REM TEST\n" +
-    "30 IF A=1 THEN END\n" +
+    "30 IF A=1 THEN STOP\n" +
     "40 IF A=1 THEN INPUT A\n" +
     '50 IF A=1 THEN PRINT "OK":A=A+1\n' +
     '60 IF A=1 THEN PRINT "OK" ELSE PRINT "NO"\n' +
@@ -584,6 +620,27 @@ test("IF THEN supported statements retain parseStatement error classifications",
   assert.match(analysis.rows[0].reasons.join(" "), /閉じていません/);
   assert.match(analysis.rows[1].reasons.join(" "), /代入式の書式/);
   assert.match(analysis.rows[2].reasons.join(" "), /未対応/);
+});
+
+test("unsupported IF THEN forms are uninterpreted and malformed END/conditions are errors", () => {
+  const analysis = analyzeProgram(
+    "10 IF A=1 THEN CLS:END\n" +
+    "20 IF A=1 THEN END ELSE END\n" +
+    "30 IF A=1 THEN END EXTRA\n" +
+    "40 IF A= THEN END\n" +
+    "50 IF A$=1 THEN END"
+  );
+  assert.deepEqual(analysis.rows.map(row => row.status), [
+    RowStatus.uninterpreted,
+    RowStatus.uninterpreted,
+    RowStatus.error,
+    RowStatus.error,
+    RowStatus.uninterpreted
+  ]);
+  assert.deepEqual(analysis.executable, []);
+  assert.ok(analysis.rows.every(row => row.instruction === null));
+  assert.match(analysis.rows[2].reasons.join(" "), /ENDに余分な内容/);
+  assert.match(analysis.rows[3].reasons.join(" "), /IF式の書式/);
 });
 
 test("malformed and unsupported rows are excluded while execution reaches AFTER and END", () => {

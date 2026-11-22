@@ -42,7 +42,7 @@ test("the approved brand and concept copy appears in its own section", () => {
     "数値代入・式（INT／RND／RANDOMIZE）",
     "数値INPUT",
     "制御命令（GOTO／REM／END）",
-    "IFのTHEN後は、行番号・単一PRINT・単一代入・単一CLS",
+    "IFのTHEN後は、行番号・単一PRINT・単一代入・単一CLS・単一END",
     "細かな書式・制限はREADMEを参照"
   ]) {
     assert.ok(footer[1].includes(phrase), `supported-scope summary includes: ${phrase}`);
@@ -68,4 +68,16 @@ test("IF THEN CLS and stop-policy scope stay aligned in both READMEs", () => {
   assert.match(englishReadme, /`IF expression THEN CLS`/);
   assert.match(englishReadme, /`THEN CLS 0`/);
   assert.match(englishReadme, /a `CLS` screen clear.*clears the\s+no-output counter/s);
+});
+
+test("IF THEN END scope and conditional END log are documented", () => {
+  assert.match(
+    html,
+    /<footer>[^<]*IFのTHEN後は、行番号・単一PRINT・単一代入・単一CLS・単一END[^<]*<\/footer>/
+  );
+  assert.match(japaneseReadme, /`IF 式 THEN END`/);
+  assert.match(japaneseReadme, /`THEN END`に余分な内容がある場合.*誤り/);
+  assert.match(englishReadme, /`IF expression THEN END`/);
+  assert.match(englishReadme, /`THEN END EXTRA`/);
+  assert.match(appJs, /event\.conditional \? "IF評価 → 真 → "/);
 });

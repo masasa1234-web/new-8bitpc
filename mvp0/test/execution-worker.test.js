@@ -184,3 +184,47 @@ test("IF THEN CLS is forwarded as one conditional worker step", async t => {
   ]);
   assert.equal(events[0].conditional, true);
 });
+
+test("IF THEN END is forwarded once and finishes before later rows", async t => {
+  const previousSelf = globalThis.self;
+  const listeners = new Map();
+  const messages = [];
+  globalThis.self = {
+    addEventListener(type, listener) {
+      listeners.set(type, listener);
+    },
+    postMessage(message) {
+      messages.push(message);
+    }
+  };
+  t.after(() => {
+    if (previousSelf === undefined) delete globalThis.self;
+    else globalThis.self = previousSelf;
+  });
+
+  const workerUrl = new URL("../app/execution-worker.js", import.meta.url);
+  await import(`${workerUrl.href}?if-end-test=${Date.now()}`);
+  const send = data => listeners.get("message")({ data });
+  const waitFor = async predicate => {
+    const deadline = Date.now() + 1000;
+    while (Date.now() < deadline) {
+      const message = messages.find(predicate);
+      if (message) return message;
+      await new Promise(resolve => setTimeout(resolve, 1));
+    }
+    throw new Error("Timed out waiting for the worker message");
+  };
+
+  send({
+    type: "run",
+    analysis: analyzeProgram('10 IF 1=1 THEN END\n20 PRINT "AFTER"')
+  });
+  const finished = await waitFor(message => message.type === "finished");
+  const events = messages
+    .filter(message => message.type === "events")
+    .flatMap(message => message.events);
+
+  assert.equal(finished.steps, 1);
+  assert.deepEqual(events.map(event => [event.type, event.step]), [["end", 1]]);
+  assert.equal(events[0].conditional, true);
+});
