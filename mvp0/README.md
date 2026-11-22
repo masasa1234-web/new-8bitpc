@@ -1,11 +1,14 @@
-# New8bitPC Windows MVP 1-A / 1-B / 1-C / 1-D
+# New8bitPC Windows MVP 1-A / 1-B / 1-C / 1-D / 1-E
 
 This isolated prototype keeps each entered page's source text unchanged and
 derives line analysis and executable statements from committed pages. It
-supports string-literal `PRINT`, numeric-line `GOTO`, `REM` as a no-op, and
-`END` to stop execution. Numeric variables and expressions can be assigned with
-`LET A=expression` or `A=expression`. Other commands are reported as uninterpreted and
-skipped. It is not a full N88-BASIC emulator.
+supports string-literal `PRINT`, argument-less `CLS` to clear only the program
+output area, numeric-line `GOTO`, `REM` as a no-op, and `END` to stop execution.
+`CLS` is logged as one execution step and does not clear the execution log, step
+history, stop-policy state, or input controls. `CLS` with arguments is
+uninterpreted and not executed. Numeric variables and expressions can be
+assigned with `LET A=expression` or `A=expression`. Other commands are reported
+as uninterpreted and skipped. It is not a full N88-BASIC emulator.
 Compact forms such as `10PRINT"A"` and `10GOTO100` are accepted when the
 command/argument boundary is clear. Ambiguous forms such as `10PRINTA` remain
 uninterpreted. These are MVP input rules, not claims about N88-BASIC hardware.
@@ -32,8 +35,8 @@ statement's single step; a false condition skips the THEN statement and advances
 to the next row. `THEN GOTO`, `THEN REM`, `THEN END`, colon-separated statements,
 `ELSE`, and other THEN forms remain uninterpreted and are not executable.
 Malformed supported THEN statements keep the existing `parseStatement`
-error/uninterpreted classification. `FOR...NEXT`, `GOSUB...RETURN`, `CLS`,
-and `PRINT` expressions remain outside this MVP subset.
+error/uninterpreted classification. `FOR...NEXT`, `GOSUB...RETURN`, and `PRINT`
+expressions remain outside this MVP subset.
 
 MVP 1-D supports one numeric variable input in `INPUT A` or
 `INPUT "prompt";A` form. It pauses the worker for a dedicated input dialog,
@@ -93,8 +96,9 @@ server URL uses port `4173`; changing ports opens a separate browser storage
 area. Export JSON before switching ports and import it at the new URL.
 Undo/redo is not included.
 
-The monitor displays only program output from `PRINT`. The execution log is
-separate and shows visited lines, step numbers, and skipped-row reasons.
+The monitor displays program output. `CLS` clears only this output area. The
+execution log is separate, retains each CLS step, and shows visited lines, step
+numbers, and skipped-row reasons.
 
 ## Execution safeguards (temporary MVP settings)
 
@@ -162,6 +166,9 @@ node --test
 11. Run string-variable, multiple-input, multiple-prompt, file-input, and
     `LINE INPUT` samples. Confirm that all unsupported forms remain uninterpreted,
     are logged with reasons, and do not execute or infer values.
+12. Run `PRINT "BEFORE"`, `CLS`, `PRINT "AFTER"`, and `END`. Confirm the monitor
+    shows only `AFTER`, while the execution log retains all commands and step
+    numbers. Confirm `CLS 0` remains uninterpreted and is not executed.
 
 ## MVP 1-B browser acceptance record
 
@@ -293,3 +300,16 @@ step 5, produced no program output, and ended normally.
    at cumulative step 5.
 4. Removed “temporary” from the correction-history label to match its persisted
    storage behavior.
+
+## MVP 1-E implementation and browser acceptance record
+
+- Date: 2026-11-22
+- Scope: argument-less `CLS` clears only the program output area; execution logs
+  and step history remain. CLS forms with arguments are uninterpreted.
+- Number-guessing game: with `RANDOMIZE 2468`, `A=INT(RND(1)*100)+1` generated
+  the target 16. Inputs `50`, `25`, `12`, `18`, and `16` exercised comparisons,
+  CLS screen updates, GOTO input loops, IF target branching, and END.
+- Browser confirmation: completed with monitor output `CORRECT` at 32 steps.
+  The 37-entry execution log retained all five CLS events while the output area
+  contained only the final message.
+- Automated tests: 63 passed
