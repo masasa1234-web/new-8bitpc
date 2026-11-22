@@ -79,7 +79,7 @@ test("unknown commands are reported and count as skipped execution steps", () =>
 
 test("unsupported syntax messages describe current support without changing classification", () => {
   const analysis = analyzeProgram(
-    "10 CLS\n20 PRINT A\n30 IF A$=1 THEN 100"
+    "10 FOO\n20 PRINT A\n30 IF A$=1 THEN 100"
   );
   assert.deepEqual(analysis.rows.map(row => row.status), [
     RowStatus.uninterpreted,
@@ -87,7 +87,7 @@ test("unsupported syntax messages describe current support without changing clas
     RowStatus.uninterpreted
   ]);
   assert.deepEqual(analysis.rows.map(row => row.reasons[0]), [
-    "命令「CLS」は現在未対応です。",
+    "命令「FOO」は現在未対応です。",
     "現在、PRINTは文字列リテラルのみ対応しています。",
     "このIF式の構文は現在未対応です。"
   ]);
@@ -115,6 +115,40 @@ test("REM is preserved as a no-op step and execution continues", () => {
   assert.equal(print.event.type, "print");
   assert.equal(print.event.value, "HELLO");
   assert.equal(print.event.step, 2);
+});
+
+test("CLS clears only the output as one understood execution step", () => {
+  const analysis = analyzeProgram(
+    '10 PRINT "BEFORE"\n20 cls\n30 PRINT "AFTER"\n40 END'
+  );
+  assert.ok(analysis.rows.every(row => row.status === RowStatus.understood));
+  assert.deepEqual(analysis.rows[1].instruction, { type: "cls" });
+
+  let state = createExecutionState();
+  const before = advanceExecution(analysis, state);
+  state = before.state;
+  const clear = advanceExecution(analysis, state);
+  state = clear.state;
+  const after = advanceExecution(analysis, state);
+
+  assert.deepEqual(
+    [before.event.type, before.event.step, clear.event.type, clear.event.step,
+      after.event.type, after.event.step],
+    ["print", 1, "cls", 2, "print", 3]
+  );
+  assert.equal(clear.event.row.sourceText, "20 cls");
+  assert.equal(state.steps, 2);
+  assert.equal(analysis.executable.length, 4);
+});
+
+test("CLS with arguments remains uninterpreted and is not executable", () => {
+  const analysis = analyzeProgram("10 CLS 0\n20 PRINT \"AFTER\"");
+  assert.deepEqual(analysis.rows.map(row => row.status), [
+    RowStatus.uninterpreted,
+    RowStatus.understood
+  ]);
+  assert.equal(analysis.rows[0].reasons[0], "CLSは引数なし形式のみ対応しています。");
+  assert.deepEqual(analysis.executable.map(row => row.lineNumber), [20]);
 });
 
 test("GOTO can target a REM row and continue with deterministic step counting", () => {

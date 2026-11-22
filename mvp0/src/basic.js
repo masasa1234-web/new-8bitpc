@@ -575,6 +575,20 @@ function parseStatement(text) {
     };
   }
 
+  if (command === "CLS") {
+    if (argument) {
+      return {
+        status: RowStatus.uninterpreted,
+        reason: "CLSは引数なし形式のみ対応しています。",
+        instruction: null
+      };
+    }
+    return {
+      status: RowStatus.understood,
+      instruction: { type: "cls" }
+    };
+  }
+
   if (command === "END") {
     if (argument) {
       return { status: RowStatus.error, reason: "ENDに余分な内容があります。" };
@@ -837,6 +851,8 @@ export function advanceExecution(analysis, state) {
     event = { type: "print", row, value: row.instruction.value, step: steps };
   } else if (row.instruction.type === "rem") {
     event = { type: "rem", row, step: steps };
+  } else if (row.instruction.type === "cls") {
+    event = { type: "cls", row, step: steps };
   } else if (row.instruction.type === "randomize") {
     let randomSeed;
     let seedSource;

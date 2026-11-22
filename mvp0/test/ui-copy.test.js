@@ -28,8 +28,8 @@ test("the approved brand and concept copy appears in its own section", () => {
     assert.ok(conceptSection[1].includes(phrase), `concept copy is present: ${phrase}`);
   }
 
-  assert.equal((html.match(/MVP 1-D/g) ?? []).length, 1);
+  assert.equal((html.match(/MVP 1-E/g) ?? []).length, 1);
   assert.equal((html.match(/当時にはなかった遊び方/g) ?? []).length, 1);
   assert.doesNotMatch(html.replace(conceptSection[0], ""), /当時にはなかった遊び方/);
-  assert.match(html, /<footer>今できること：/);
+  assert.match(html, /<footer>今できること：[^<]*CLS/);
 });

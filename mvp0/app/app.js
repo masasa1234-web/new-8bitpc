@@ -306,6 +306,7 @@ function createLogEntry(event) {
       event.conditional ? "IF評価 → 真 → " : ""
     }${
       event.type === "print" ? "PRINT" :
+      event.type === "cls" ? "CLS（画面消去）" :
       event.type === "goto" ? `GOTO ${event.targetLine}` :
       event.type === "rem" ? "REM（no-op）" :
       event.type === "assign" ? `代入 ${event.variable} = ${event.value}` :
@@ -522,14 +523,14 @@ worker.addEventListener("message", ({ data }) => {
   }
   if (data.type === "events") {
     stepCount.textContent = String(data.steps);
-    let output = "";
     addLogEntries(data.events);
     for (const event of data.events) {
-      if (event.type === "print") output += `${event.value}\n`;
-    }
-    if (output) {
-      monitorScreen.append(document.createTextNode(output));
-      monitorScreen.scrollTop = monitorScreen.scrollHeight;
+      if (event.type === "cls") {
+        monitorScreen.textContent = "";
+      } else if (event.type === "print") {
+        monitorScreen.append(document.createTextNode(`${event.value}\n`));
+        monitorScreen.scrollTop = monitorScreen.scrollHeight;
+      }
     }
     return;
   }
