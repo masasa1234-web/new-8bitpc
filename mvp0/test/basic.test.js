@@ -68,12 +68,30 @@ test("input order is preserved while execution order is numeric", () => {
 test("unknown commands are reported and count as skipped execution steps", () => {
   const analysis = analyzeProgram('10 PRINT "HELLO"\n20 GOTO 10\n30 FOO');
   assert.equal(analysis.rows[2].status, RowStatus.uninterpreted);
+  assert.equal(analysis.rows[2].reasons[0], "命令「FOO」は現在未対応です。");
   assert.equal(analysis.counts.uninterpreted, 1);
   let state = { position: 2, steps: 2, done: false };
   const result = advanceExecution(analysis, state);
   assert.equal(result.event.type, "skipped");
   assert.equal(result.event.row.sourceText, "30 FOO");
   assert.equal(result.state.steps, 3);
+});
+
+test("unsupported syntax messages describe current support without changing classification", () => {
+  const analysis = analyzeProgram(
+    "10 CLS\n20 PRINT A\n30 IF A$=1 THEN 100"
+  );
+  assert.deepEqual(analysis.rows.map(row => row.status), [
+    RowStatus.uninterpreted,
+    RowStatus.uninterpreted,
+    RowStatus.uninterpreted
+  ]);
+  assert.deepEqual(analysis.rows.map(row => row.reasons[0]), [
+    "命令「CLS」は現在未対応です。",
+    "現在、PRINTは文字列リテラルのみ対応しています。",
+    "このIF式の構文は現在未対応です。"
+  ]);
+  assert.equal(analysis.executable.length, 0);
 });
 
 test("REM is preserved as a no-op step and execution continues", () => {
@@ -491,7 +509,7 @@ test("malformed and unsupported rows are excluded while execution reaches AFTER 
   ]);
   assert.match(analysis.rows[1].reasons.join(" "), /文字列リテラルが閉じていません/);
   assert.match(analysis.rows[2].reasons.join(" "), /代入式の書式/);
-  assert.match(analysis.rows[3].reasons.join(" "), /未対応/);
+  assert.match(analysis.rows[3].reasons.join(" "), /文字列リテラルのみ対応/);
   assert.deepEqual(analysis.executable.map(row => row.lineNumber), [10, 50, 60]);
 
   let state = createExecutionState();

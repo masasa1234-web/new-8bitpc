@@ -433,7 +433,7 @@ function parseIfStatement(text) {
     if (expressionText.includes("$") || expressionText.includes(":") || expressionText.includes("ELSE")) {
       return {
         status: RowStatus.uninterpreted,
-        reason: "このIF式の構文は0段階では未対応です。",
+        reason: "このIF式の構文は現在未対応です。",
         instruction: null
       };
     }
@@ -600,7 +600,7 @@ function parseStatement(text) {
     }
     return {
       status: RowStatus.uninterpreted,
-      reason: "0段階ではPRINTの文字列リテラル以外は未対応です。"
+      reason: "現在、PRINTは文字列リテラルのみ対応しています。"
     };
   }
 
@@ -620,7 +620,7 @@ function parseStatement(text) {
 
   return {
     status: RowStatus.uninterpreted,
-    reason: `命令「${commandText}」は0段階では未対応です。`
+    reason: `命令「${commandText}」は現在未対応です。`
   };
 }
 
