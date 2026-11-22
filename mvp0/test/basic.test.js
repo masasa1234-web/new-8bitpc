@@ -460,6 +460,32 @@ test("IF THEN single PRINT and assignment execute in the same step when true", (
   assert.equal(end.event.step, 4);
 });
 
+test("true IF THEN CLS clears through one conditional event and advances one row", () => {
+  const analysis = analyzeProgram(
+    '10 PRINT "BEFORE"\n20 IF 1=1 THEN CLS\n30 PRINT "AFTER"\n40 END'
+  );
+  assert.ok(analysis.rows.every(row => row.status === RowStatus.understood));
+  assert.deepEqual(analysis.rows[1].instruction.thenInstruction, { type: "cls" });
+  assert.deepEqual(analysis.executable.map(row => row.lineNumber), [10, 20, 30, 40]);
+
+  let state = createExecutionState();
+  const before = advanceExecution(analysis, state);
+  state = before.state;
+  const clear = advanceExecution(analysis, state);
+  state = clear.state;
+  const after = advanceExecution(analysis, state);
+
+  assert.equal(clear.event.type, "cls");
+  assert.equal(clear.event.conditional, true);
+  assert.equal(clear.event.step, 2);
+  assert.equal(clear.event.row.sourceText, "20 IF 1=1 THEN CLS");
+  assert.equal(clear.state.position, 2);
+  assert.equal(after.event.type, "print");
+  assert.equal(after.event.value, "AFTER");
+  assert.equal(after.event.step, 3);
+  assert.equal(state.steps, 2);
+});
+
 test("false IF THEN statements are not executed and continue to the next row", () => {
   const analysis = analyzeProgram(
     '10 A=0\n20 IF A=1 THEN PRINT "NO"\n30 IF A=1 THEN A=99\n40 PRINT "NEXT"'
@@ -484,6 +510,27 @@ test("false IF THEN statements are not executed and continue to the next row", (
   assert.equal(analysis.rows.some(row => row.sourceText.includes('"NO"')), true);
 });
 
+test("false IF THEN CLS emits no clear event and continues to the next row", () => {
+  const analysis = analyzeProgram(
+    '10 PRINT "BEFORE"\n20 IF 1=0 THEN CLS\n30 PRINT "AFTER"\n40 END'
+  );
+  let state = createExecutionState();
+  const before = advanceExecution(analysis, state);
+  state = before.state;
+  const conditional = advanceExecution(analysis, state);
+  state = conditional.state;
+  const after = advanceExecution(analysis, state);
+
+  assert.equal(conditional.event.type, "if");
+  assert.equal(conditional.event.result, false);
+  assert.equal(conditional.event.step, 2);
+  assert.equal(conditional.state.position, 2);
+  assert.equal(after.event.type, "print");
+  assert.equal(after.event.value, "AFTER");
+  assert.equal(after.event.step, 3);
+  assert.equal(state.steps, 2);
+});
+
 test("out-of-scope IF THEN tails remain uninterpreted as whole rows", () => {
   const raw =
     "10 IF A=1 THEN GOTO 100\n" +
@@ -494,15 +541,31 @@ test("out-of-scope IF THEN tails remain uninterpreted as whole rows", () => {
     '60 IF A=1 THEN PRINT "OK" ELSE PRINT "NO"\n' +
     "70 IF A=1 THEN BEEP\n" +
     '80 IF A=1 THEN PRINT "ELSE"\n' +
-    '90 IF A=1 THEN PRINT "A:B"';
+    '90 IF A=1 THEN PRINT "A:B"\n' +
+    "100 IF A=1 THEN CLS 0\n" +
+    '110 IF A=1 THEN CLS:PRINT "NO"\n' +
+    "120 IF A=1 THEN CLS ELSE CLS\n" +
+    "130 IF A$=1 THEN CLS\n" +
+    "140 IF A= THEN CLS";
   const analysis = analyzeProgram(raw);
   assert.deepEqual(
-    analysis.rows.slice(0, 7).map(row => row.status),
-    Array(7).fill(RowStatus.uninterpreted)
+    analysis.rows.map(row => row.status),
+    [
+      ...Array(7).fill(RowStatus.uninterpreted),
+      RowStatus.understood,
+      RowStatus.understood,
+      RowStatus.uninterpreted,
+      RowStatus.uninterpreted,
+      RowStatus.uninterpreted,
+      RowStatus.uninterpreted,
+      RowStatus.error
+    ]
   );
   assert.deepEqual(analysis.executable.map(row => row.lineNumber), [80, 90]);
   assert.ok(analysis.rows.slice(0, 7).every(row => row.instruction === null));
-  assert.ok(analysis.rows.slice(0, 7).every(row => row.reasons.join(" ").length > 0));
+  assert.ok(analysis.rows.slice(9).every(row => row.instruction === null));
+  assert.ok(analysis.rows.filter(row => row.instruction === null)
+    .every(row => row.reasons.join(" ").length > 0));
 });
 
 test("IF THEN supported statements retain parseStatement error classifications", () => {
@@ -572,7 +635,7 @@ test("malformed and unsupported rows are excluded while execution reaches AFTER 
   assert.equal(state.done, true);
 });
 
-test("inline IF PRINT resets the no-output stop policy as one output step", () => {
+test("inline IF PRINT clears the no-output counter as one output step", () => {
   const analysis = analyzeProgram('10 IF 1=1 THEN PRINT "OK"\n20 END');
   const result = advanceExecution(analysis, createExecutionState());
   assert.equal(result.event.type, "print");
@@ -591,6 +654,43 @@ test("inline IF PRINT resets the no-output stop policy as one output step", () =
     observed.state.nextNoOutputCheckAt,
     DEFAULT_STOP_SETTINGS.noOutputSteps * 2
   );
+});
+
+test("CLS clears the no-output counter while a false IF does not", () => {
+  const previous = {
+    ...createStopPolicyState(DEFAULT_STOP_SETTINGS),
+    steps: DEFAULT_STOP_SETTINGS.noOutputSteps - 1,
+    stepsSinceOutput: DEFAULT_STOP_SETTINGS.noOutputSteps - 1,
+    nextNoOutputCheckAt: DEFAULT_STOP_SETTINGS.noOutputSteps
+  };
+  const singleCls = advanceExecution(
+    analyzeProgram("10 CLS"),
+    createExecutionState()
+  ).event;
+  const conditionalCls = advanceExecution(
+    analyzeProgram("10 IF 1=1 THEN CLS"),
+    createExecutionState()
+  ).event;
+  const falseIf = advanceExecution(
+    analyzeProgram("10 IF 1=0 THEN CLS"),
+    createExecutionState()
+  ).event;
+
+  assert.equal(singleCls.type, "cls");
+  assert.equal(conditionalCls.type, "cls");
+  assert.equal(conditionalCls.conditional, true);
+  for (const event of [singleCls, conditionalCls]) {
+    const observed = observeExecutionStep(previous, event, false, DEFAULT_STOP_SETTINGS);
+    assert.equal(observed.stop, null);
+    assert.equal(observed.state.stepsSinceOutput, 0);
+    assert.equal(observed.state.nextNoOutputCheckAt, DEFAULT_STOP_SETTINGS.noOutputSteps * 2);
+  }
+
+  assert.equal(falseIf.type, "if");
+  assert.equal(falseIf.result, false);
+  const observedFalse = observeExecutionStep(previous, falseIf, false, DEFAULT_STOP_SETTINGS);
+  assert.equal(observedFalse.stop.type, "noOutput");
+  assert.equal(observedFalse.state.stepsSinceOutput, DEFAULT_STOP_SETTINGS.noOutputSteps);
 });
 
 test("IF does not change GOTO or assignment behavior", () => {

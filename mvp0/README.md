@@ -28,15 +28,17 @@ Variable names start with an ASCII letter and are case-insensitive. Comparison
 results use `-1` for true and `0` for false. Division by zero and references to
 undefined variables stop that statement with a runtime error. Malformed
 expressions are parse errors; expressions containing unknown functions remain
-uninterpreted and are not partially executed. MVP 1-C adds `IF expression THEN
-line-number`, `IF expression THEN PRINT "string"`, and `IF expression THEN
-assignment`. A true inline PRINT or assignment executes as part of the IF
-statement's single step; a false condition skips the THEN statement and advances
-to the next row. `THEN GOTO`, `THEN REM`, `THEN END`, colon-separated statements,
-`ELSE`, and other THEN forms remain uninterpreted and are not executable.
-Malformed supported THEN statements keep the existing `parseStatement`
-error/uninterpreted classification. `FOR...NEXT`, `GOSUB...RETURN`, and `PRINT`
-expressions remain outside this MVP subset.
+uninterpreted and are not partially executed. The supported IF forms are
+`IF expression THEN line-number`, `IF expression THEN PRINT "string"`,
+`IF expression THEN assignment`, and `IF expression THEN CLS`. A true inline
+PRINT, assignment, or CLS executes as part of the IF statement's single step;
+CLS clears only the program output area. A false condition skips the THEN
+statement and advances to the next row. `THEN CLS 0`, `THEN GOTO`, `THEN REM`,
+`THEN END`, colon-separated statements, `ELSE`, and other THEN forms remain
+uninterpreted and are not executable. Malformed supported THEN statements keep
+the existing `parseStatement` error/uninterpreted classification.
+`FOR...NEXT`, `GOSUB...RETURN`, and `PRINT` expressions remain outside this MVP
+subset.
 
 MVP 1-D supports one numeric variable input in `INPUT A` or
 `INPUT "prompt";A` form. It pauses the worker for a dedicated input dialog,
@@ -114,12 +116,13 @@ numbers, and skipped-row reasons.
 
 Execution pauses when at least half of the last 20 counted steps were skipped,
 after a minimum of 10 steps, or after 500 consecutive steps without `PRINT`
-output or an INPUT wait. Reaching an INPUT row counts once as a non-skipped
-step and resets the no-output counter. Input completion continues that same
-step; no automatic stop check runs while waiting. Unresolved references are
-excluded until **完成**. Choosing **続ける** doubles the next check interval,
-up to 160 steps for skipped rows and 4,000 steps without output. At the cap,
-the prompt can be suppressed for that reason for the current run only.
+output, a `CLS` screen clear, or an INPUT wait. Each of those events clears the
+no-output counter. Reaching an INPUT row counts once as a non-skipped step.
+Input completion continues that same step; no automatic stop check runs while
+waiting. Unresolved references are excluded until **完成**. Choosing **続ける**
+doubles the next check interval, up to 160 steps for skipped rows and 4,000
+steps without output. At the cap, the prompt can be suppressed for that reason
+for the current run only.
 **停止** remains available while the worker runs; during an INPUT wait, use
 **停止** in the input dialog.
 
@@ -164,15 +167,15 @@ node --test
 9. Run `LET A=-5`, `B=(A*-2)+(10-3)`, and `C=B>=10` and confirm the variable
    values are `-5`, `17`, and `-1`. Confirm `LET D=B/0` and `LET E=UNKNOWN+1`
    are reported as runtime errors and do not change the variable table.
-10. Verify IF jumps to a line number, then test `IF A=1 THEN PRINT "OK"` and
-    `IF A=1 THEN A=A+1`: a true condition runs the inline PRINT or assignment
-    within the IF's single step, while a false condition skips it and advances
-    to the next row. Confirm `THEN GOTO`, `THEN REM`, `THEN END`, colon-separated
-    statements, `ELSE`, and unknown THEN forms leave the whole IF row
-    uninterpreted and non-executable. Malformed supported PRINT/assignment
-    statements retain the parser's existing error/uninterpreted classification.
-    Unresolved line targets wait before completion and become errors after
-    completion.
+10. Verify IF jumps to a line number, then test `IF A=1 THEN PRINT "OK"`,
+    `IF A=1 THEN A=A+1`, and `IF A=1 THEN CLS`: a true condition runs the inline
+    PRINT, assignment, or CLS within the IF's single step, while a false
+    condition skips it and advances to the next row. Confirm `THEN CLS 0`,
+    `THEN GOTO`, `THEN REM`, `THEN END`, colon-separated statements, `ELSE`, and
+    unknown THEN forms leave the whole IF row uninterpreted and non-executable.
+    Malformed supported statements retain the parser's existing
+    error/uninterpreted classification. Unresolved line targets wait before
+    completion and become errors after completion.
 11. Run string-variable, multiple-input, multiple-prompt, file-input, and
     `LINE INPUT` samples. Confirm that all unsupported forms remain uninterpreted,
     are logged with reasons, and do not execute or infer values.

@@ -4,6 +4,8 @@ import { readFileSync } from "node:fs";
 
 const html = readFileSync(new URL("../app/index.html", import.meta.url), "utf8");
 const appJs = readFileSync(new URL("../app/app.js", import.meta.url), "utf8");
+const japaneseReadme = readFileSync(new URL("../README.ja.md", import.meta.url), "utf8");
+const englishReadme = readFileSync(new URL("../README.md", import.meta.url), "utf8");
 
 test("the approved brand and concept copy appears in its own section", () => {
   const header = /<header class="page-header"[^>]*>([\s\S]*?)<\/header>/.exec(html);
@@ -40,7 +42,7 @@ test("the approved brand and concept copy appears in its own section", () => {
     "数値代入・式（INT／RND／RANDOMIZE）",
     "数値INPUT",
     "制御命令（GOTO／REM／END）",
-    "IFのTHEN後は、行番号・単一PRINT・単一代入",
+    "IFのTHEN後は、行番号・単一PRINT・単一代入・単一CLS",
     "細かな書式・制限はREADMEを参照"
   ]) {
     assert.ok(footer[1].includes(phrase), `supported-scope summary includes: ${phrase}`);
@@ -55,6 +57,15 @@ test("the approved brand and concept copy appears in its own section", () => {
 test("execution-log empty-state copy follows log and stop-policy display behavior", () => {
   assert.match(appJs, /executionLogEmpty\.hidden = true;/);
   assert.equal((appJs.match(/executionLogEmpty\.hidden = false;/g) ?? []).length, 2);
-  assert.match(appJs, /PRINT出力もINPUT待機もありません/);
-  assert.match(appJs, /PRINT出力もINPUT待機もない/);
+  assert.match(appJs, /PRINT出力・CLSによる画面クリア・INPUT待機がありません/);
+  assert.match(appJs, /PRINT出力・CLSによる画面クリア・INPUT待機がない/);
+});
+
+test("IF THEN CLS and stop-policy scope stay aligned in both READMEs", () => {
+  assert.match(japaneseReadme, /`IF 式 THEN CLS`/);
+  assert.match(japaneseReadme, /`THEN CLS 0`/);
+  assert.match(japaneseReadme, /`CLS`による画面クリア.*無出力カウンターをクリア/);
+  assert.match(englishReadme, /`IF expression THEN CLS`/);
+  assert.match(englishReadme, /`THEN CLS 0`/);
+  assert.match(englishReadme, /a `CLS` screen clear.*clears the\s+no-output counter/s);
 });

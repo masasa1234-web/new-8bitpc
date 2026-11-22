@@ -476,10 +476,10 @@ function parseIfStatement(text) {
       reason: `IFのTHEN後の文は未対応です。${thenStatement.reason ?? ""}`.trim()
     };
   }
-  if (!["print", "assign"].includes(thenStatement.instruction?.type)) {
+  if (!["print", "assign", "cls"].includes(thenStatement.instruction?.type)) {
     return {
       status: RowStatus.uninterpreted,
-      reason: "IFのTHEN後は単一のPRINTまたは代入文のみ対応しています。",
+      reason: "IFのTHEN後は単一のPRINT・代入・CLSのみ対応しています。",
       instruction: null
     };
   }
@@ -966,6 +966,13 @@ export function advanceExecution(analysis, state) {
           type: "print",
           row,
           value: row.instruction.thenInstruction.value,
+          conditional: true,
+          step: steps
+        };
+      } else if (result && row.instruction.thenInstruction?.type === "cls") {
+        event = {
+          type: "cls",
+          row,
           conditional: true,
           step: steps
         };
