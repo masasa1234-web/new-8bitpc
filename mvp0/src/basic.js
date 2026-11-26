@@ -369,7 +369,7 @@ export function parseInputNumber(text) {
 }
 
 function parseInputStatement(text) {
-  const promptMatch = /^INPUT\s+"([^"]*)"\s*;\s*([A-Za-z][A-Za-z0-9]*)\s*$/i.exec(text.trim());
+  const promptMatch = /^INPUT\s+"([^"]*)"\s*[;,]\s*([A-Za-z][A-Za-z0-9]*)\s*$/i.exec(text.trim());
   if (promptMatch) {
     return {
       status: RowStatus.understood,

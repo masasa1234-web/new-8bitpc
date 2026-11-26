@@ -305,6 +305,18 @@ test("prompted INPUT preserves the prompt and target variable", () => {
   assert.equal(waiting.event.prompt, "予想");
 });
 
+test("prompted INPUT accepts comma and semicolon with identical prompt display data", () => {
+  for (const separator of [",", ";"]) {
+    const analysis = analyzeProgram(`10 INPUT "予想" ${separator} A`);
+    assert.equal(analysis.rows[0].status, RowStatus.understood);
+
+    const waiting = advanceExecution(analysis, createExecutionState());
+    assert.equal(waiting.event.type, "input-wait");
+    assert.equal(waiting.event.variable, "A");
+    assert.equal(waiting.event.prompt, "予想");
+  }
+});
+
 test("unsupported INPUT forms remain uninterpreted", () => {
   const analysis = analyzeProgram(
     '10 INPUT A$\n20 INPUT A,B\n30 INPUT #1,A\n40 LINE INPUT A'
