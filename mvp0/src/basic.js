@@ -414,8 +414,11 @@ function hasUnquotedIfSeparator(text) {
 }
 
 function parseIfStatement(text) {
-  const match = /^IF\s+(.+?)\s+THEN\s+([\s\S]+)$/i.exec(text.trim());
-  if (!match) {
+  const thenMatch = /^IF\s+(.+?)\s+THEN\s+([\s\S]+)$/i.exec(text.trim());
+  const gotoMatch = thenMatch
+    ? null
+    : /^IF\s+(.+?)\s+GOTO\s+(\d+)\s*$/i.exec(text.trim());
+  if (!thenMatch && !gotoMatch) {
     if (/^IF\b/i.test(text.trim())) {
       return {
         status: RowStatus.uninterpreted,
@@ -426,8 +429,8 @@ function parseIfStatement(text) {
     return null;
   }
 
-  const expressionText = match[1].trim();
-  const thenText = match[2].trim();
+  const expressionText = (thenMatch?.[1] ?? gotoMatch[1]).trim();
+  const thenText = thenMatch?.[2].trim();
   const parsedExpression = parseExpression(expressionText);
   if (parsedExpression.status === "uninterpreted") {
     return {
@@ -452,8 +455,11 @@ function parseIfStatement(text) {
   }
   const expression = parsedExpression.expression;
 
-  if (/^\d+$/.test(thenText)) {
-    const targetLine = Number(thenText);
+  const targetLineText = gotoMatch?.[2] ?? (
+    /^\d+$/.test(thenText) ? thenText : null
+  );
+  if (targetLineText !== null) {
+    const targetLine = Number(targetLineText);
     if (!Number.isSafeInteger(targetLine)) {
       return {
         status: RowStatus.error,

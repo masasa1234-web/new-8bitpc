@@ -241,6 +241,41 @@ test("IF true jumps to THEN line and false continues to the next row", () => {
   assert.equal(falseEvents[2].value, "NEXT");
 });
 
+test("IF GOTO without THEN matches IF THEN line jumps and reference handling", () => {
+  const thenAnalysis = analyzeProgram(
+    '10 A=1\n20 IF A=1 THEN 100\n30 PRINT "NO"\n100 PRINT "YES"\n110 END'
+  );
+  const gotoAnalysis = analyzeProgram(
+    '10 A=1\n20 IF A=1 GOTO 100\n30 PRINT "NO"\n100 PRINT "YES"\n110 END'
+  );
+  assert.ok(gotoAnalysis.rows.every(row => row.status === RowStatus.understood));
+
+  const run = analysis => {
+    let state = createExecutionState();
+    const events = [];
+    while (!state.done) {
+      const result = advanceExecution(analysis, state);
+      state = result.state;
+      if (result.event) events.push(result.event);
+    }
+    return events;
+  };
+  assert.deepEqual(
+    run(gotoAnalysis).map(event => [event.type, event.row.lineNumber, event.targetLine]),
+    run(thenAnalysis).map(event => [event.type, event.row.lineNumber, event.targetLine])
+  );
+
+  const unresolved = analyzeProgram("10 IF A=1 GOTO 999");
+  assert.equal(unresolved.rows[0].status, RowStatus.referenceWaiting);
+  const skipped = advanceExecution(unresolved, createExecutionState());
+  assert.equal(skipped.event.type, "skipped");
+  assert.equal(skipped.event.row.status, RowStatus.referenceWaiting);
+
+  const completed = analyzeProgram("10 IF A=1 GOTO 999", { complete: true });
+  assert.equal(completed.rows[0].status, RowStatus.error);
+  assert.match(completed.rows[0].reasons.join(" "), /行番号999がありません/);
+});
+
 test("IF unresolved targets wait and become errors on completion", () => {
   const raw = "10 IF A=1 THEN 999";
   const waiting = analyzeProgram(raw);
