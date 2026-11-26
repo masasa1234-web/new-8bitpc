@@ -988,6 +988,36 @@ test("RND uses a fixed default seed when RANDOMIZE is not called", () => {
   assert.equal(createExecutionState({ randomSeed: TEST_RANDOM_SEED }).randomSeed, TEST_RANDOM_SEED);
 });
 
+test("bare RND is equivalent to RND(1) and uses the same deterministic seed", () => {
+  const bare = analyzeProgram(
+    "10 A=RND\n" +
+    "20 B=INT(RND*100+1)\n" +
+    "30 END"
+  );
+  const parenthesized = analyzeProgram(
+    "10 A=RND(1)\n" +
+    "20 B=INT(RND(1)*100+1)\n" +
+    "30 END"
+  );
+  assert.ok(bare.rows.every(row => row.status === RowStatus.understood));
+
+  const run = analysis => {
+    let state = createExecutionState();
+    const values = {};
+    while (!state.done) {
+      const result = advanceExecution(analysis, state);
+      state = result.state;
+      if (result.event?.type === "assign") {
+        values[result.event.variable] = result.event.value;
+      }
+    }
+    return values;
+  };
+
+  assert.deepEqual(run(bare), run(parenthesized));
+  assert.deepEqual(run(bare), run(bare));
+});
+
 test("RANDOMIZE specified and decimal seeds reset RND for deterministic replay", () => {
   const analysis = analyzeProgram(
     "10 RANDOMIZE 123.75\n" +

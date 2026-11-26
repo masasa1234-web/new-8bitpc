@@ -136,6 +136,13 @@ class ExpressionParser {
         this.position += 1;
         return this.withRecursionDepth(() => this.parseFunction(name));
       }
+      if (name === "RND") {
+        return {
+          type: "function",
+          name,
+          argument: { type: "number", value: 1 }
+        };
+      }
       return { type: "variable", name: token.value.toUpperCase() };
     }
     if (token.value === "(") {
